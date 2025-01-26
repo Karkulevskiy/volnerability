@@ -11,13 +11,15 @@ import (
 	"time"
 	"volnerability-game/application/logger"
 	"volnerability-game/cfg"
+	"volnerability-game/db"
+	"volnerability-game/rest/auth"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 )
 
 func main() {
-	// setup logger for logging into file
+	// open file for writting logs
 	logFile, err := os.OpenFile("game.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		log.Fatal(err)
@@ -27,6 +29,12 @@ func main() {
 	cfg := cfg.MustLoad() // parse cfg in cfg.json
 
 	l := slog.New(slog.NewJSONHandler(logFile, nil)) // sutup logger
+
+	db, err := db.New(cfg.StoragePath)
+	if err != nil {
+		l.Error("failed to init storage", err.Error())
+		os.Exit(1)
+	}
 
 	r := chi.NewRouter()
 
@@ -38,8 +46,13 @@ func main() {
 
 	// routing
 	r.Route("", func(r chi.Router) {
-		// r.Use() TODO add basic auth ??
-		// r.Post()
+		// TODO r.Use() add basic auth ??
+		r.Post("/login", auth.New(l, db)) // TODO логин
+		r.Post("/register", nil)          // TODO регистрация
+
+		r.Route("/int", func(r chi.Router) {
+			r.Post("/int", nil) // TODO сдесь будут имплементированы внутренние методы
+		})
 	})
 
 	l.Info("starting server", slog.String("address", cfg.Address))

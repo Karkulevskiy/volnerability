@@ -3,8 +3,13 @@ module volnerability-game
 go 1.23.4
 
 require (
-	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/go-chi/chi v1.5.5
+	github.com/go-chi/render v1.0.3
+)
+
+require (
+	github.com/ajg/form v1.5.1 // indirect
+	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/go-chi/chi/v5 v5.2.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
