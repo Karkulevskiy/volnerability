@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"log"
 	"log/slog"
 	"net/http"
@@ -9,10 +11,12 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	coderunner "volnerability-game/application/codeRunner"
 	"volnerability-game/application/logger"
 	"volnerability-game/cfg"
 	"volnerability-game/db"
 	"volnerability-game/rest/auth"
+	"volnerability-game/rest/code"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
@@ -28,13 +32,19 @@ func main() {
 
 	cfg := cfg.MustLoad() // parse cfg in cfg.json
 
-	l := slog.New(slog.NewJSONHandler(logFile, nil)) // sutup logger
+	l := slog.New(
+		slog.NewJSONHandler(
+			io.MultiWriter(logFile, os.Stdout), nil)) // sutup logger
 
 	db, err := db.New(cfg.StoragePath)
 	if err != nil {
 		l.Error("failed to init storage", err.Error())
 		os.Exit(1)
 	}
+
+	l.Info(fmt.Sprintf("%v", cfg))
+
+	codeRunner := coderunner.New()
 
 	r := chi.NewRouter()
 
@@ -45,15 +55,9 @@ func main() {
 	r.Use(middleware.URLFormat)
 
 	// routing
-	r.Route("", func(r chi.Router) {
-		// TODO r.Use() add basic auth ??
-		r.Post("/login", auth.New(l, db)) // TODO логин
-		r.Post("/register", nil)          // TODO регистрация
-
-		r.Route("/int", func(r chi.Router) {
-			r.Post("/int", nil) // TODO сдесь будут имплементированы внутренние методы
-		})
-	})
+	r.Post("/login", auth.New(l, db)) // TODO логин
+	r.Post("/register", nil)          // TODO регистрация
+	r.Post("/code", code.New(l, codeRunner))
 
 	l.Info("starting server", slog.String("address", cfg.Address))
 
@@ -61,7 +65,7 @@ func main() {
 	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
 	srv := &http.Server{
-		Addr:         cfg.Address,
+		Addr:         "0.0.0.0:8082", // TODO cfg.Address NOT WORKING, WHY?????? 
 		Handler:      r,
 		ReadTimeout:  cfg.HTTPServer.Timeout,
 		WriteTimeout: cfg.HTTPServer.Timeout,

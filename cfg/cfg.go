@@ -16,14 +16,14 @@ type HTTPServer struct {
 	Address     string        `json:"address"`
 	Timeout     time.Duration `json:"timeout"`
 	IdleTimeout time.Duration `json:"idle_timeout"`
-	User        string        `json:"user"`
-	Password    string        `json:"password"`
 }
 
 func MustLoad() *Config {
-	viper.SetConfigName("cfg.json")
+	viper.SetConfigName("cfg")
 	viper.SetConfigType("json")
-	viper.AddConfigPath(".")
+	viper.AddConfigPath("cfg\\")
+
+	viper.SetDefault("address", "0.0.0.0:8082") // TODO добавить дефолтные настройки
 
 	if err := viper.ReadInConfig(); err != nil {
 		log.Fatalf("failed read config: %v", err)
