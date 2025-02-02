@@ -3,7 +3,7 @@ package auth
 import (
 	"log/slog"
 	"net/http"
-	"volnerability-game/application/logger/utils"
+	"volnerability-game/internal/lib/logger/utils"
 
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/render"

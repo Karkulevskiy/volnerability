@@ -11,17 +11,20 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
-	coderunner "volnerability-game/application/codeRunner"
-	"volnerability-game/application/logger"
-	"volnerability-game/application/logger/utils"
-	"volnerability-game/cfg"
-	"volnerability-game/db"
-	"volnerability-game/rest/auth"
-	"volnerability-game/rest/code"
+	"volnerability-game/internal/api/auth"
+	"volnerability-game/internal/api/code"
+	"volnerability-game/internal/cfg"
+	coderunner "volnerability-game/internal/codeRunner"
+	containermgr "volnerability-game/internal/containerMgr"
+	"volnerability-game/internal/db"
+	"volnerability-game/internal/lib/logger"
+	"volnerability-game/internal/lib/logger/utils"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 )
+
+// TODO запуск контейнеров
 
 func main() {
 	logFile, err := os.OpenFile("game.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
@@ -44,7 +47,15 @@ func main() {
 
 	l.Info(fmt.Sprintf("%v", cfg))
 
-	codeRunner := coderunner.New()
+	l.Info("start containers")
+	orchestrator := containermgr.New() // TODO должен быть в mw ? Откуда будет узнавать нагрузку? Как будет выбирать свободный контейнер?
+	if err := orchestrator.RunContainers(); err != nil {
+		l.Error("failed run containers", utils.Err(err))
+		os.Exit(2)
+	}
+	l.Info("containers started")
+
+	codeRunner := coderunner.New(orchestrator.Dir)
 
 	r := chi.NewRouter()
 

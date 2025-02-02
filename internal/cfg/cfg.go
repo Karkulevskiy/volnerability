@@ -15,7 +15,7 @@ type Config struct {
 }
 
 func MustLoad() *Config {
-	viper.SetConfigFile("./cfg/cfg.json")
+	viper.SetConfigFile("./internal/cfg/cfg.json")
 
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
