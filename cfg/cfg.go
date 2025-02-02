@@ -8,25 +8,22 @@ import (
 )
 
 type Config struct {
-	StoragePath string `json:"storage_path"`
-	HTTPServer
-}
-
-type HTTPServer struct {
+	StoragePath string        `json:"storage_path"`
 	Address     string        `json:"address"`
 	Timeout     time.Duration `json:"timeout"`
 	IdleTimeout time.Duration `json:"idle_timeout"`
 }
 
 func MustLoad() *Config {
-	viper.SetConfigName("cfg")
-	viper.SetConfigType("json")
-	viper.AddConfigPath("cfg\\")
-
-	viper.SetDefault("address", "0.0.0.0:8082") // TODO добавить дефолтные настройки
+	viper.SetConfigFile("./cfg/cfg.json")
 
 	if err := viper.ReadInConfig(); err != nil {
-		log.Fatalf("failed read config: %v", err)
+		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+			log.Println("cfg file was not found, using default settings")
+			return defaultConfig()
+		} else {
+			log.Fatalf("failed read config: %v", err)
+		}
 	}
 
 	cfg := &Config{}
@@ -36,4 +33,13 @@ func MustLoad() *Config {
 	}
 
 	return cfg
+}
+
+func defaultConfig() *Config {
+	return &Config{
+		Address:     "0.0.0.0:8082",
+		Timeout:     time.Second * 4,
+		StoragePath: "./db",
+		IdleTimeout: time.Second * 30,
+	}
 }
