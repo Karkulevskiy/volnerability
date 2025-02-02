@@ -13,29 +13,28 @@ import (
 	"time"
 	coderunner "volnerability-game/application/codeRunner"
 	"volnerability-game/application/logger"
+	"volnerability-game/application/logger/utils"
 	"volnerability-game/cfg"
 	"volnerability-game/db"
 	"volnerability-game/rest/auth"
 	"volnerability-game/rest/code"
-	"volnerability-game/utils"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 )
 
 func main() {
-	// open file for writting logs
 	logFile, err := os.OpenFile("game.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer logFile.Close()
 
-	cfg := cfg.MustLoad() // parse cfg in cfg.json
+	cfg := cfg.MustLoad()
 
 	l := slog.New(
 		slog.NewJSONHandler(
-			io.MultiWriter(logFile, os.Stdout), nil)) // sutup logger
+			io.MultiWriter(logFile, os.Stdout), nil))
 
 	db, err := db.New(cfg.StoragePath)
 	if err != nil {

@@ -3,7 +3,7 @@ package code
 import (
 	"log/slog"
 	"net/http"
-	"volnerability-game/utils"
+	"volnerability-game/application/logger/utils"
 
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/render"
