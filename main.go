@@ -17,6 +17,7 @@ import (
 	"volnerability-game/db"
 	"volnerability-game/rest/auth"
 	"volnerability-game/rest/code"
+	"volnerability-game/utils"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
@@ -38,7 +39,7 @@ func main() {
 
 	db, err := db.New(cfg.StoragePath)
 	if err != nil {
-		l.Error("failed to init storage", err.Error())
+		l.Error("failed to init storage", utils.Err(err))
 		os.Exit(1)
 	}
 
@@ -65,7 +66,7 @@ func main() {
 	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
 	srv := &http.Server{
-		Addr:         "0.0.0.0:8082", // TODO cfg.Address NOT WORKING, WHY?????? 
+		Addr:         "0.0.0.0:8082", // TODO cfg.Address NOT WORKING, WHY??????
 		Handler:      r,
 		ReadTimeout:  cfg.HTTPServer.Timeout,
 		WriteTimeout: cfg.HTTPServer.Timeout,
@@ -88,7 +89,7 @@ func main() {
 	defer cancel()
 
 	if err := srv.Shutdown(ctx); err != nil {
-		l.Error("failed to stop server: ", err) // TODO проверить, есть ли разница, если вместо err использовать err.Error()
+		l.Error("failed to stop server: ", utils.Err(err))
 	}
 
 	//TODO close db

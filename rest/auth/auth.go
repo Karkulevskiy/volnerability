@@ -3,6 +3,7 @@ package auth
 import (
 	"log/slog"
 	"net/http"
+	"volnerability-game/utils"
 
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/render"
@@ -30,7 +31,7 @@ func New(l *slog.Logger, auth Auther) http.HandlerFunc {
 
 		req := Request{}
 		if err := render.DecodeJSON(r.Body, &req); err != nil {
-			l.Error("failed parse request body", err.Error())
+			l.Error("failed parse request body", utils.Err(err))
 			render.JSON(w, r, err) // TODO не стоит просто отправлять внутреннюю ошибку пользователю, нужно ее замаппить на кастомную
 			return
 		}
