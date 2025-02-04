@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+	"volnerability-game/internal/domain"
 )
 
 type Runner interface {
@@ -15,69 +16,26 @@ type Runner interface {
 }
 
 type CodeRunner struct {
-	dir string
+	dir   string
+	queue chan domain.Task
 }
 
-func New(dir string) *CodeRunner {
+func New(dir string, queue chan domain.Task) *CodeRunner {
 	return &CodeRunner{
-		dir: dir,
+		dir:   dir,
+		queue: queue,
 	}
 }
 
 func (r *CodeRunner) Run(code string, lang string) (string, error) {
 	// TODO нужно быстро уметь валидировать, что код вообще билдиться
 	// Механизм кеширования, используя очередь
-	file, err := os.CreateTemp(r.dir, "code-*."+lang)
-	if err != nil {
-		return "", err
-	}
-	defer os.Remove(file.Name())
 
-	if _, err := file.WriteString(code); err != nil {
-		return "", err
+	task := domain.Task{
+		Code: code,
+		Lang: lang,
 	}
 
-	if err := file.Close(); err != nil {
-		return "", err
-	}
+	r.queue <- task
 
-	cmd := r.cmd(file.Name(), lang)
-
-	slog.Info(cmd.String())
-
-	var stdout, stderr bytes.Buffer
-
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	_, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	if err = cmd.Run(); err != nil {
-		return "", err
-	}
-
-	return stdout.String(), nil
-}
-
-func (r *CodeRunner) cmd(fileName, lang string) *exec.Cmd {
-	fileName, _ = strings.CutPrefix(fileName, r.dir)
-	pathToFile := "/home/" + fileName
-
-	slog.Info(fileName)
-	runner := ""
-	switch lang {
-	case "c":
-		runner = "" // TODO
-	case "py":
-		runner = "python3"
-	}
-
-	return exec.Command("docker", "exec", containerName(), runner, pathToFile)
-}
-
-// TODO спрашивать из свободного пула контейнеров у оркестратора
-func containerName() string {
-	// TODO для оркестратора
-	return "code-runner"
 }

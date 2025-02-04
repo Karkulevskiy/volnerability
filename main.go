@@ -24,8 +24,6 @@ import (
 	"github.com/go-chi/chi/middleware"
 )
 
-// TODO запуск контейнеров
-
 func main() {
 	logFile, err := os.OpenFile("game.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
@@ -48,14 +46,16 @@ func main() {
 	l.Info(fmt.Sprintf("%v", cfg))
 
 	l.Info("start containers")
-	orchestrator := containermgr.New() // TODO должен быть в mw ? Откуда будет узнавать нагрузку? Как будет выбирать свободный контейнер?
+
+	orchestrator := containermgr.New(l) // TODO должен быть в mw ? Откуда будет узнавать нагрузку? Как будет выбирать свободный контейнер?
+
 	if err := orchestrator.RunContainers(); err != nil {
 		l.Error("failed run containers", utils.Err(err))
 		os.Exit(2)
 	}
 	l.Info("containers started")
 
-	codeRunner := coderunner.New(orchestrator.Dir)
+	codeRunner := coderunner.New(orchestrator.Dir, orchestrator.Queue)
 
 	r := chi.NewRouter()
 
@@ -85,13 +85,19 @@ func main() {
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil {
-			l.Error("failed to start server")
+			l.Error("failed to start server", utils.Err(err))
 		}
 	}()
 
 	l.Info("server started")
 
 	<-done
+
+	l.Info("stopping containers")
+
+	if err := orchestrator.Stop(); err != nil {
+		l.Error("failed stop containers", utils.Err(err))
+	}
 
 	l.Info("stopping server")
 
