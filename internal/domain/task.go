@@ -4,6 +4,7 @@ type Task struct {
 	Code  string
 	Lang  string
 	ReqId string
+	Resp  chan ExecuteResponse
 }
 
 type ExecuteResponse struct {

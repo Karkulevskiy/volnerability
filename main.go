@@ -47,7 +47,7 @@ func main() {
 
 	l.Info("start containers")
 
-	orchestrator := containermgr.New(l) // TODO должен быть в mw ? Откуда будет узнавать нагрузку? Как будет выбирать свободный контейнер?
+	orchestrator := containermgr.New(l) 
 
 	if err := orchestrator.RunContainers(); err != nil {
 		l.Error("failed run containers", utils.Err(err))
@@ -55,7 +55,7 @@ func main() {
 	}
 	l.Info("containers started")
 
-	codeRunner := coderunner.New(orchestrator.Dir, orchestrator.Queue)
+	codeRunner := coderunner.New(l, orchestrator.Dir, orchestrator.Queue)
 
 	r := chi.NewRouter()
 
@@ -88,13 +88,11 @@ func main() {
 			l.Error("failed to start server", utils.Err(err))
 		}
 	}()
-
 	l.Info("server started")
 
 	<-done
 
 	l.Info("stopping containers")
-
 	if err := orchestrator.Stop(); err != nil {
 		l.Error("failed stop containers", utils.Err(err))
 	}

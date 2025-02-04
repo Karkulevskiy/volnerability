@@ -60,12 +60,15 @@ func (o *Orchestrator) Stop() error {
 		}
 	}
 	o.l.Info(fmt.Sprintf("containers: [%s] were stopped", strings.Join(o.containers, ", ")))
+
+	close(o.available)
+	close(o.Queue)
+
 	return nil
 }
 
 func (o *Orchestrator) RunContainers() error {
 	//  Параметры запуска: docker run --name code-runner -v /home/spacikl/codes/:/home/ code-runner
-	ctx := context.Background()
 	for i := range maxContainers {
 		// TODO запускать по имени + i
 		containerName := "code-runner-" + strconv.Itoa(i)
@@ -79,19 +82,19 @@ func (o *Orchestrator) RunContainers() error {
 		o.available <- containerName
 	}
 
-	go o.taskProcessor(ctx)
+	go o.taskProcessor()
 
 	return nil
 }
 
-func (o *Orchestrator) taskProcessor(ctx context.Context) {
+func (o *Orchestrator) taskProcessor() {
 	for task := range o.Queue {
 		containerId := <-o.available
-		go o.executeTask(ctx, containerId, task)
+		go o.executeTask(containerId, task)
 	}
 }
 
-func (o *Orchestrator) executeTask(ctx context.Context, containerId string, t domain.Task) {
+func (o *Orchestrator) executeTask(containerId string, t domain.Task) {
 	o.l.Info(fmt.Sprintf("start task: [%s] on container: [%s]", t.ReqId, containerId))
 
 	resp, err := o.runCode(containerId, t)
@@ -99,8 +102,7 @@ func (o *Orchestrator) executeTask(ctx context.Context, containerId string, t do
 		o.l.Error("failed run code", utils.Err(err))
 	}
 
-	_ = resp
-	// TODO закинуть респонс в канал ответа
+	t.Resp <- resp
 	o.available <- containerId
 }
 
