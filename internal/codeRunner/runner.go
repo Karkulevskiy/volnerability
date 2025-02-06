@@ -1,83 +1,55 @@
 package coderunner
 
 import (
-	"bytes"
 	"context"
+	"fmt"
 	"log/slog"
-	"os"
-	"os/exec"
-	"strings"
-	"time"
+	"volnerability-game/internal/domain"
 )
+
+const executionTimeout = 5
 
 type Runner interface {
 	Run(code string) (string, error)
 }
 
 type CodeRunner struct {
-	dir string
+	dir   string
+	queue chan domain.Task
+	l     *slog.Logger
 }
 
-func New(dir string) *CodeRunner {
+func New(l *slog.Logger, dir string, queue chan domain.Task) *CodeRunner {
 	return &CodeRunner{
-		dir: dir,
+		dir:   dir,
+		queue: queue,
+		l:     l,
 	}
 }
 
-func (r *CodeRunner) Run(code string, lang string) (string, error) {
+func (r *CodeRunner) Run(code, lang, reqId string) (string, error) {
 	// TODO нужно быстро уметь валидировать, что код вообще билдиться
 	// Механизм кеширования, используя очередь
-	file, err := os.CreateTemp(r.dir, "code-*."+lang)
-	if err != nil {
-		return "", err
+	task := domain.Task{
+		Code:  code,
+		Lang:  lang,
+		ReqId: reqId,
+		Resp:  make(chan domain.ExecuteResponse, 1),
 	}
-	defer os.Remove(file.Name())
+	defer close(task.Resp)
 
-	if _, err := file.WriteString(code); err != nil {
-		return "", err
-	}
-
-	if err := file.Close(); err != nil {
-		return "", err
-	}
-
-	cmd := r.cmd(file.Name(), lang)
-
-	slog.Info(cmd.String())
-
-	var stdout, stderr bytes.Buffer
-
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	_, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), executionTimeout)
 	defer cancel()
-
-	if err = cmd.Run(); err != nil {
-		return "", err
+	// TODO или тут прокидывать контекст с дедлайном, прям в таску?
+	// Тут утечка горутин будет 100 %, нужен дедлайн
+	for {
+		select {
+		case r.queue <- task:
+		case resp := <-task.Resp:
+			return resp.Resp, nil
+		case <-ctx.Done():
+			r.l.Info(fmt.Sprintf("task runtime exceeded, reqId: %s", task.ReqId)) // TODO не хватает данных айди таски, чтобы потом по логам можно было нормально найти
+			return "", fmt.Errorf("task runtime exceeded")
+		}
 	}
-
-	return stdout.String(), nil
-}
-
-func (r *CodeRunner) cmd(fileName, lang string) *exec.Cmd {
-	fileName, _ = strings.CutPrefix(fileName, r.dir)
-	pathToFile := "/home/" + fileName
-
-	slog.Info(fileName)
-	runner := ""
-	switch lang {
-	case "c":
-		runner = "" // TODO
-	case "py":
-		runner = "python3"
-	}
-
-	return exec.Command("docker", "exec", containerName(), runner, pathToFile)
-}
-
-// TODO спрашивать из свободного пула контейнеров у оркестратора
-func containerName() string {
-	// TODO для оркестратора
-	return "code-runner"
 }
