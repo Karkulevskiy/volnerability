@@ -2,9 +2,10 @@ package cfg
 
 import (
 	"log"
+	"os"
 	"time"
 
-	"github.com/spf13/viper"
+	"github.com/ilyakaznacheev/cleanenv"
 )
 
 type Config struct {
@@ -12,24 +13,26 @@ type Config struct {
 	Address     string        `json:"address"`
 	Timeout     time.Duration `json:"timeout"`
 	IdleTimeout time.Duration `json:"idle_timeout"`
+
+	OrchestratorConfig
+}
+
+type OrchestratorConfig struct {
+	TempDir string `json:"temp_dir"`
 }
 
 func MustLoad() *Config {
-	viper.SetConfigFile("./internal/cfg/cfg.json")
-
-	if err := viper.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			log.Println("cfg file was not found, using default settings")
-			return defaultConfig()
-		} else {
-			log.Fatalf("failed read config: %v", err)
-		}
+	cfgPath := "./cfg/cfg.json"
+	if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
+		log.Fatalf("cfg not found in: %s", cfgPath)
 	}
 
 	cfg := &Config{}
 
-	if err := viper.Unmarshal(cfg); err != nil {
-		log.Fatalf("failed parse config: %v", err)
+	if err := cleanenv.ReadConfig(cfgPath, cfg); err != nil {
+		l := log.Default()
+		cfg = defaultConfig()
+		l.Printf("failed read config: %v\n use default: %v", err, cfg)
 	}
 
 	return cfg

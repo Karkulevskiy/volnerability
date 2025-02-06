@@ -1,19 +1,21 @@
 package containermgr
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"log"
+	"io"
 	"log/slog"
 	"os"
-	"os/exec"
 	"strconv"
 	"strings"
-	"sync"
-	"time"
+	"volnerability-game/internal/common"
 	"volnerability-game/internal/domain"
 	"volnerability-game/internal/lib/logger/utils"
+
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/mount"
+	"github.com/docker/docker/client"
 )
 
 const (
@@ -27,18 +29,23 @@ type Orchestrator struct {
 	Queue        chan domain.Task
 	results      map[string]string
 	containers   []string
-	containersMx sync.Mutex
 	available    chan string
 	l            *slog.Logger
+	dockerClient *client.Client
 }
 
-// TODO остановка контейнеров
-// TODO запускать остановленные контейнеры, если они уже созданы
-
-func New(l *slog.Logger) Orchestrator {
+// TODO удаление временных файлов после остановки приложения
+func New(l *slog.Logger) (Orchestrator, error) {
 	workingDir := os.TempDir() + "/codes"
 	if err := os.Mkdir(workingDir, os.FileMode(os.O_CREATE|os.O_RDWR|os.O_APPEND)); err != nil {
-		log.Fatal(err)
+		l.Error("failed to create temp folder", utils.Err(err))
+		return Orchestrator{}, err
+	}
+
+	cli, err := client.NewClientWithOpts(client.FromEnv)
+	if err != nil {
+		l.Error("failed to create docker client", utils.Err(err))
+		return Orchestrator{}, err
 	}
 
 	return Orchestrator{
@@ -47,18 +54,19 @@ func New(l *slog.Logger) Orchestrator {
 		available:    make(chan string, maxContainers),
 		containers:   make([]string, 0, maxContainers),
 		results:      map[string]string{},
-		containersMx: sync.Mutex{},
+		dockerClient: cli,
 		l:            l,
-	}
+	}, nil
 }
 
 func (o *Orchestrator) Stop() error {
-	for _, containerName := range o.containers {
-		if err := exec.Command("docker", "stop", "--name", containerName).Run(); err != nil {
-			o.l.Error(fmt.Sprintf("failed stop container: %s", containerName), utils.Err(err))
+	for _, id := range o.containers {
+		if err := o.dockerClient.ContainerStop(context.Background(), id, container.StopOptions{}); err != nil { // deafult timeout 10s
+			o.l.Error(fmt.Sprintf("failed stop container: %s", id), utils.Err(err))
 			return err
 		}
 	}
+
 	o.l.Info(fmt.Sprintf("containers: [%s] were stopped", strings.Join(o.containers, ", ")))
 
 	close(o.available)
@@ -67,24 +75,75 @@ func (o *Orchestrator) Stop() error {
 	return nil
 }
 
+// TODO получение имен контейнеров из енва
 func (o *Orchestrator) RunContainers() error {
 	//  Параметры запуска: docker run --name code-runner -v /home/spacikl/codes/:/home/ code-runner
-	for i := range maxContainers {
-		// TODO запускать по имени + i
-		containerName := "code-runner-" + strconv.Itoa(i)
-		if err := exec.Command("docker", "run", "--name", "code-runner", "-v", o.Dir, ":/home", "code-runner").Run(); err != nil {
-			// TODO остановить запущенные контейнеры, если будет ошибка
-			o.l.Error(fmt.Sprintf("failed start container: %s", containerName), utils.Err(err))
+	ctx := context.Background()
+	containers, err := o.dockerClient.ContainerList(ctx, container.ListOptions{})
+	if err != nil {
+		o.l.Error("failed to retrive existing containers", utils.Err(err))
+		return err
+	}
+
+	if err := o.createContainers(ctx, containers); err != nil {
+		return err
+	}
+
+	for _, id := range o.containers {
+		if err := o.dockerClient.ContainerStart(ctx, id, container.StartOptions{}); err != nil {
+			o.l.Error(fmt.Sprintf("failed start container: %s", id), utils.Err(err))
 			return err
 		}
-		o.l.Info(fmt.Sprintf("start container: %s", containerName))
-		o.containers = append(o.containers, containerName)
-		o.available <- containerName
 	}
 
 	go o.taskProcessor()
 
 	return nil
+}
+
+func (o *Orchestrator) createContainers(ctx context.Context, containers []types.Container) error {
+	containersSet := common.ToSetBy(containers, func(c types.Container) string { return c.ID })
+
+	for i := range maxContainers {
+		containerName := "code-runner-" + strconv.Itoa(i)
+
+		if _, ok := containersSet[containerName]; ok {
+			continue
+		}
+
+		resp, err := o.createContainer(ctx, containerName)
+		if err != nil {
+			return err
+		}
+		o.l.Info(fmt.Sprintf("start container: %s", resp.ID))
+
+		o.containers = append(o.containers, resp.ID)
+		o.available <- containerName
+	}
+
+	return nil
+}
+
+func (o *Orchestrator) createContainer(ctx context.Context, containerName string) (container.CreateResponse, error) {
+	resp, err := o.dockerClient.ContainerCreate(ctx, &container.Config{
+		Image: "python:3.9-slim", // TODO найти легковесные образы
+		Cmd:   []string{"sleep", "infinity"},
+	}, &container.HostConfig{
+		Mounts: []mount.Mount{
+			{
+				Type:   mount.TypeVolume,
+				Source: o.Dir,
+				Target: ":/home", // TODO некрасиво, нужно это все брать из конфига (файла)
+			},
+		},
+	}, nil, nil, containerName)
+
+	if err != nil {
+		o.l.Error(fmt.Sprintf("failed create container: %s", containerName), utils.Err(err))
+		return container.CreateResponse{}, err
+	}
+
+	return resp, nil
 }
 
 func (o *Orchestrator) taskProcessor() {
@@ -124,34 +183,34 @@ func (o *Orchestrator) runCode(containerId string, t domain.Task) (domain.Execut
 		return empty, err
 	}
 
-	cmd := o.cmd(file.Name(), t.Lang, containerId)
+	ctx := context.Background()
 
-	slog.Info(cmd.String())
+	execResp, err := o.dockerClient.ContainerExecCreate(ctx, containerId, container.ExecOptions{
+		Cmd:          cmd(file.Name(), t.Lang),
+		AttachStdout: true,
+		AttachStderr: true,
+		Tty:          false,
+	})
 
-	var stdout, stderr bytes.Buffer
-
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	_, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	if err = cmd.Run(); err != nil {
+	if err != nil {
 		return empty, err
 	}
 
-	execResp := domain.ExecuteResponse{
-		Resp: stdout.String(),
+	attachResp, err := o.dockerClient.ContainerExecAttach(ctx, execResp.ID, container.ExecStartOptions{}) // TODO нужно для каждого контейнера держать свой процесс?? И просто через какой то метод его получать?
+	if err != nil {
+		return empty, err
+	}
+	defer attachResp.Close()
+
+	output, err := io.ReadAll(attachResp.Reader)
+	if err != nil {
+		return empty, err
 	}
 
-	return execResp, nil
+	return domain.ExecuteResponse{Resp: string(output)}, nil
 }
 
-func (o *Orchestrator) cmd(fileName, lang, containerId string) *exec.Cmd {
-	fileName, _ = strings.CutPrefix(fileName, o.Dir)
-	pathToFile := "/home/" + fileName
-
-	slog.Info(fileName)
+func cmd(fileName, lang string) []string {
 	runner := ""
 	switch lang {
 	case "c":
@@ -159,6 +218,5 @@ func (o *Orchestrator) cmd(fileName, lang, containerId string) *exec.Cmd {
 	case "py":
 		runner = "python3"
 	}
-
-	return exec.Command("docker", "exec", containerId, runner, pathToFile)
+	return []string{runner, fileName}
 }
