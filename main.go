@@ -40,7 +40,7 @@ func main() {
 		panic(err)
 	}
 
-	orchestrator, err := containermgr.New(l)
+	orchestrator, err := containermgr.New(l, cfg.OrchestratorConfig)
 	if err != nil {
 		l.Error("failed to init container manager", utils.Err(err))
 		panic(err)
@@ -67,7 +67,7 @@ func main() {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.URLFormat)
 
-	codeRunner := coderunner.New(l, orchestrator.Dir, orchestrator.Queue)
+	codeRunner := coderunner.New(l, orchestrator.Queue)
 
 	r.Post("/login", auth.New(l, db)) // TODO логин
 	r.Post("/register", nil)          // TODO регистрация

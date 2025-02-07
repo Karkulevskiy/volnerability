@@ -2,20 +2,25 @@ package containermgr
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
+	"volnerability-game/internal/cfg"
 	"volnerability-game/internal/common"
 	"volnerability-game/internal/domain"
 	"volnerability-game/internal/lib/logger/utils"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/archive"
 )
 
 const (
@@ -25,9 +30,10 @@ const (
 )
 
 type Orchestrator struct {
-	Dir          string
+	TempDir      string
+	TargetDir    string
+	ImageName    string
 	Queue        chan domain.Task
-	results      map[string]string
 	containers   []string
 	available    chan string
 	l            *slog.Logger
@@ -35,25 +41,29 @@ type Orchestrator struct {
 }
 
 // TODO удаление временных файлов после остановки приложения
-func New(l *slog.Logger) (Orchestrator, error) {
-	workingDir := os.TempDir() + "/codes"
-	if err := os.Mkdir(workingDir, os.FileMode(os.O_CREATE|os.O_RDWR|os.O_APPEND)); err != nil {
-		l.Error("failed to create temp folder", utils.Err(err))
-		return Orchestrator{}, err
+func New(l *slog.Logger, cfg cfg.OrchestratorConfig) (Orchestrator, error) {
+	tempDir := os.TempDir() + "/codes"
+	if err := os.Mkdir(tempDir, os.FileMode(os.O_CREATE|os.O_RDWR|os.O_APPEND)); err != nil {
+		if !errors.Is(err, os.ErrExist) {
+			l.Error("failed to create temp folder", utils.Err(err))
+			return Orchestrator{}, err
+		}
+		l.Info("temp folder for codes already created")
 	}
 
-	cli, err := client.NewClientWithOpts(client.FromEnv)
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation()) // map client api version
 	if err != nil {
 		l.Error("failed to create docker client", utils.Err(err))
 		return Orchestrator{}, err
 	}
 
 	return Orchestrator{
-		Dir:          workingDir,
+		TempDir:      tempDir,
+		TargetDir:    cfg.TargetDir,
+		ImageName:    cfg.ImageName,
 		Queue:        make(chan domain.Task, maxTasks),
 		available:    make(chan string, maxContainers),
 		containers:   make([]string, 0, maxContainers),
-		results:      map[string]string{},
 		dockerClient: cli,
 		l:            l,
 	}, nil
@@ -61,7 +71,7 @@ func New(l *slog.Logger) (Orchestrator, error) {
 
 func (o *Orchestrator) Stop() error {
 	for _, id := range o.containers {
-		if err := o.dockerClient.ContainerStop(context.Background(), id, container.StopOptions{}); err != nil { // deafult timeout 10s
+		if err := o.dockerClient.ContainerPause(context.Background(), id); err != nil {
 			o.l.Error(fmt.Sprintf("failed stop container: %s", id), utils.Err(err))
 			return err
 		}
@@ -75,11 +85,15 @@ func (o *Orchestrator) Stop() error {
 	return nil
 }
 
-// TODO получение имен контейнеров из енва
 func (o *Orchestrator) RunContainers() error {
 	//  Параметры запуска: docker run --name code-runner -v /home/spacikl/codes/:/home/ code-runner
 	ctx := context.Background()
-	containers, err := o.dockerClient.ContainerList(ctx, container.ListOptions{})
+
+	if err := o.buildImage(ctx); err != nil {
+		return err
+	}
+
+	containers, err := o.dockerClient.ContainerList(ctx, container.ListOptions{All: true})
 	if err != nil {
 		o.l.Error("failed to retrive existing containers", utils.Err(err))
 		return err
@@ -91,8 +105,11 @@ func (o *Orchestrator) RunContainers() error {
 
 	for _, id := range o.containers {
 		if err := o.dockerClient.ContainerStart(ctx, id, container.StartOptions{}); err != nil {
-			o.l.Error(fmt.Sprintf("failed start container: %s", id), utils.Err(err))
-			return err
+			o.l.Info("container already started, unpause")
+			if err := o.dockerClient.ContainerUnpause(ctx, id); err != nil {
+				o.l.Error(fmt.Sprintf("failed start container: %s", id), utils.Err(err))
+				return err
+			}
 		}
 	}
 
@@ -102,23 +119,83 @@ func (o *Orchestrator) RunContainers() error {
 }
 
 func (o *Orchestrator) createContainers(ctx context.Context, containers []types.Container) error {
-	containersSet := common.ToSetBy(containers, func(c types.Container) string { return c.ID })
+	containersSet := common.ToSetBy(containers, func(c types.Container) string {
+		if len(c.Names) == 0 || len(c.Names[0]) <= 1 {
+			return ""
+		}
+		return c.Names[0][1:]
+	}) // docker create containers /code-runner-1, exclude "/"
 
 	for i := range maxContainers {
-		containerName := "code-runner-" + strconv.Itoa(i)
-
-		if _, ok := containersSet[containerName]; ok {
-			continue
+		containerName := o.ImageName + "-" + strconv.Itoa(i)
+		if _, ok := containersSet[containerName]; !ok {
+			o.l.Info(fmt.Sprintf("create container: %s", containerName))
+			if _, err := o.createContainer(ctx, containerName); err != nil {
+				return err
+			}
 		}
 
-		resp, err := o.createContainer(ctx, containerName)
-		if err != nil {
-			return err
-		}
-		o.l.Info(fmt.Sprintf("start container: %s", resp.ID))
-
-		o.containers = append(o.containers, resp.ID)
+		o.containers = append(o.containers, containerName)
 		o.available <- containerName
+	}
+
+	return nil
+}
+
+func imageExist(ctx context.Context, targetImage string, c *client.Client) (bool, error) {
+	images, err := c.ImageList(ctx, image.ListOptions{})
+	if err != nil {
+		return false, err
+	}
+
+	if slices.ContainsFunc(images, func(i image.Summary) bool {
+		return slices.ContainsFunc(i.RepoTags, func(name string) bool { return name == targetImage })
+	}) {
+		return true, nil
+	}
+
+	return false, nil
+}
+
+func createTar() (io.ReadCloser, error) {
+	wd, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
+	return archive.TarWithOptions(wd, &archive.TarOptions{IncludeFiles: []string{"Dockerfile"}})
+}
+
+func (o *Orchestrator) buildImage(ctx context.Context) error {
+	ok, err := imageExist(ctx, o.ImageName, o.dockerClient)
+	if err != nil {
+		return err
+	}
+
+	if ok {
+		o.l.Info("docker image already build")
+		return nil
+	}
+
+	tar, err := createTar()
+	if err != nil {
+		o.l.Error("failed to crate tar file", utils.Err(err))
+		return err
+	}
+
+	resp, err := o.dockerClient.ImageBuild(ctx, tar, types.ImageBuildOptions{
+		Dockerfile: "Dockerfile",
+		Tags:       []string{o.ImageName},
+	})
+
+	if err != nil {
+		o.l.Error("failed to build image", utils.Err(err))
+		return err
+	}
+	defer resp.Body.Close()
+
+	if _, err = io.Copy(os.Stdout, resp.Body); err != nil {
+		o.l.Error("failed to get build response", utils.Err(err))
+		return err
 	}
 
 	return nil
@@ -126,14 +203,13 @@ func (o *Orchestrator) createContainers(ctx context.Context, containers []types.
 
 func (o *Orchestrator) createContainer(ctx context.Context, containerName string) (container.CreateResponse, error) {
 	resp, err := o.dockerClient.ContainerCreate(ctx, &container.Config{
-		Image: "python:3.9-slim", // TODO найти легковесные образы
-		Cmd:   []string{"sleep", "infinity"},
+		Image: o.ImageName,
 	}, &container.HostConfig{
 		Mounts: []mount.Mount{
 			{
-				Type:   mount.TypeVolume,
-				Source: o.Dir,
-				Target: ":/home", // TODO некрасиво, нужно это все брать из конфига (файла)
+				Type:   mount.TypeBind,
+				Source: o.TempDir,
+				Target: o.TargetDir,
 			},
 		},
 	}, nil, nil, containerName)
@@ -169,7 +245,7 @@ func (o *Orchestrator) runCode(containerId string, t domain.Task) (domain.Execut
 	empty := domain.ExecuteResponse{}
 
 	// TODO Хочется придумать пул свободных файлов, чтобы просто их перезаписывать
-	file, err := os.CreateTemp(o.Dir, "code-*."+t.Lang)
+	file, err := os.CreateTemp(o.TempDir, "code-*."+t.Lang)
 	if err != nil {
 		return empty, err
 	}

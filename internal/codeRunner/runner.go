@@ -14,14 +14,12 @@ type Runner interface {
 }
 
 type CodeRunner struct {
-	dir   string
 	queue chan domain.Task
 	l     *slog.Logger
 }
 
-func New(l *slog.Logger, dir string, queue chan domain.Task) *CodeRunner {
+func New(l *slog.Logger, queue chan domain.Task) *CodeRunner {
 	return &CodeRunner{
-		dir:   dir,
 		queue: queue,
 		l:     l,
 	}
