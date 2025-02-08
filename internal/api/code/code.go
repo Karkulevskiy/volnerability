@@ -11,8 +11,8 @@ import (
 )
 
 type Request struct {
-	Code string
-	Lang string
+	Code string `json:"code"`
+	Lang string `json:"lang"`
 }
 
 type Runner interface {
@@ -25,6 +25,7 @@ func New(l *slog.Logger, runner Runner) http.HandlerFunc {
 			slog.String("op", "rest.code.New"), // Задаем тип операции (чтобы это отображалось в логах)
 			slog.String("request_id", middleware.GetReqID(r.Context())),
 		)
+
 		reqId := r.Header.Get("X-Request-ID")
 		req := Request{}
 		if err := render.DecodeJSON(r.Body, &req); err != nil {
@@ -53,6 +54,8 @@ func New(l *slog.Logger, runner Runner) http.HandlerFunc {
 	}
 }
 
+// TODO добавить ошибки 404, 500 и их маппинг
+// при ошибке возвращается инфа, которая ничего не говорит...
 func validate(req Request) error {
 	if req.Lang != "c" && req.Lang != "py" {
 		return fmt.Errorf("unsupported language format")

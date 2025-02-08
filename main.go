@@ -23,6 +23,7 @@ import (
 	"github.com/go-chi/chi/middleware"
 )
 
+// TODO сильно много логгирования, поправить, убрав ненужные, повторяющиеся логи
 func main() {
 	logFile, err := os.OpenFile("game.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
@@ -32,17 +33,17 @@ func main() {
 
 	cfg := cfg.MustLoad()
 
-	l := slog.New(slog.NewJSONHandler(io.MultiWriter(logFile, os.Stdout), nil))
+	l := slog.New(slog.NewTextHandler(
+		io.MultiWriter(logFile, os.Stdout),
+		&slog.HandlerOptions{AddSource: true}))
 
 	db, err := db.New(cfg.StoragePath)
 	if err != nil {
-		l.Error("failed to init storage", utils.Err(err))
 		panic(err)
 	}
 
 	orchestrator, err := containermgr.New(l, cfg.OrchestratorConfig)
 	if err != nil {
-		l.Error("failed to init container manager", utils.Err(err))
 		panic(err)
 	}
 
@@ -55,7 +56,6 @@ func main() {
 
 	l.Info("start containers")
 	if err := orchestrator.RunContainers(); err != nil {
-		l.Error("failed run containers", utils.Err(err))
 		panic(err)
 	}
 	l.Info("containers started")
@@ -100,6 +100,7 @@ func main() {
 
 	if err := srv.Shutdown(ctx); err != nil {
 		l.Error("failed to stop server: ", utils.Err(err))
+		return
 	}
 
 	//TODO close db

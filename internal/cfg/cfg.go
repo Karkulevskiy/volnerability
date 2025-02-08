@@ -15,7 +15,7 @@ type Config struct {
 
 type HttpServer struct {
 	StoragePath string        `yaml:"storage_path" env-default:"./db"`
-	Address     string        `yaml:"address" env-default:"0.0.0.0:8082"`
+	Address     string        `yaml:"address" env-default:"0.0.0.0:8080"`
 	Timeout     time.Duration `yaml:"timeout" env-default:"4s"`
 	IdleTimeout time.Duration `yaml:"idle_timeout" env-default:"60s"`
 }

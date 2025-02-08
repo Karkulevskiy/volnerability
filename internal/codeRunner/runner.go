@@ -4,10 +4,9 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"time"
 	"volnerability-game/internal/domain"
 )
-
-const executionTimeout = 5
 
 type Runner interface {
 	Run(code string) (string, error)
@@ -36,18 +35,18 @@ func (r *CodeRunner) Run(code, lang, reqId string) (string, error) {
 	}
 	defer close(task.Resp)
 
-	ctx, cancel := context.WithTimeout(context.Background(), executionTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 	// TODO или тут прокидывать контекст с дедлайном, прям в таску?
 	// Тут утечка горутин будет 100 %, нужен дедлайн
+	r.queue <- task
 	for {
 		select {
-		case r.queue <- task:
 		case resp := <-task.Resp:
 			return resp.Resp, nil
 		case <-ctx.Done():
 			r.l.Info(fmt.Sprintf("task runtime exceeded, reqId: %s", task.ReqId)) // TODO не хватает данных айди таски, чтобы потом по логам можно было нормально найти
-			return "", fmt.Errorf("task runtime exceeded")
+			return "", nil                                                        // TODO создать ошибку с типом, что таска не успела выполниться, и прокидывать дальше
 		}
 	}
 }

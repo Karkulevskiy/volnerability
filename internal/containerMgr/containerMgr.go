@@ -20,17 +20,15 @@ import (
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/client"
-	"github.com/docker/docker/pkg/archive"
 )
 
 const (
-	maxContainers    = 10
-	maxTasks         = 100
-	maxExecutionTime = 3 // TODO какое максимальное время на выполнение кода? Возможно оно должно меняться в зависимости от задания?
+	maxContainers = 10
+	maxTasks      = 100
 )
 
 type Orchestrator struct {
-	TempDir      string
+	WorkingDir   string
 	TargetDir    string
 	ImageName    string
 	Queue        chan domain.Task
@@ -42,8 +40,13 @@ type Orchestrator struct {
 
 // TODO удаление временных файлов после остановки приложения
 func New(l *slog.Logger, cfg cfg.OrchestratorConfig) (Orchestrator, error) {
-	tempDir := os.TempDir() + "/codes"
-	if err := os.Mkdir(tempDir, os.FileMode(os.O_CREATE|os.O_RDWR|os.O_APPEND)); err != nil {
+	wdPath, err := wdPathForCodes()
+	if err != nil {
+		l.Error("failed get working dir")
+		return Orchestrator{}, err
+	}
+
+	if err := os.Mkdir(wdPath, os.FileMode(os.O_CREATE|os.O_RDWR|os.O_APPEND)); err != nil {
 		if !errors.Is(err, os.ErrExist) {
 			l.Error("failed to create temp folder", utils.Err(err))
 			return Orchestrator{}, err
@@ -58,7 +61,7 @@ func New(l *slog.Logger, cfg cfg.OrchestratorConfig) (Orchestrator, error) {
 	}
 
 	return Orchestrator{
-		TempDir:      tempDir,
+		WorkingDir:   wdPath,
 		TargetDir:    cfg.TargetDir,
 		ImageName:    cfg.ImageName,
 		Queue:        make(chan domain.Task, maxTasks),
@@ -69,6 +72,7 @@ func New(l *slog.Logger, cfg cfg.OrchestratorConfig) (Orchestrator, error) {
 	}, nil
 }
 
+// TODО Ctrl+C останавливает почему то с ошибкой 1
 func (o *Orchestrator) Stop() error {
 	for _, id := range o.containers {
 		if err := o.dockerClient.ContainerPause(context.Background(), id); err != nil {
@@ -86,7 +90,6 @@ func (o *Orchestrator) Stop() error {
 }
 
 func (o *Orchestrator) RunContainers() error {
-	//  Параметры запуска: docker run --name code-runner -v /home/spacikl/codes/:/home/ code-runner
 	ctx := context.Background()
 
 	if err := o.buildImage(ctx); err != nil {
@@ -157,14 +160,6 @@ func imageExist(ctx context.Context, targetImage string, c *client.Client) (bool
 	return false, nil
 }
 
-func createTar() (io.ReadCloser, error) {
-	wd, err := os.Getwd()
-	if err != nil {
-		return nil, err
-	}
-	return archive.TarWithOptions(wd, &archive.TarOptions{IncludeFiles: []string{"Dockerfile"}})
-}
-
 func (o *Orchestrator) buildImage(ctx context.Context) error {
 	ok, err := imageExist(ctx, o.ImageName, o.dockerClient)
 	if err != nil {
@@ -208,7 +203,7 @@ func (o *Orchestrator) createContainer(ctx context.Context, containerName string
 		Mounts: []mount.Mount{
 			{
 				Type:   mount.TypeBind,
-				Source: o.TempDir,
+				Source: o.WorkingDir,
 				Target: o.TargetDir,
 			},
 		},
@@ -237,15 +232,20 @@ func (o *Orchestrator) executeTask(containerId string, t domain.Task) {
 		o.l.Error("failed run code", utils.Err(err))
 	}
 
-	t.Resp <- resp
+	select {
+	case t.Resp <- resp:
+	default:
+		o.l.Info(fmt.Sprintf("task: %s was closed, data lost", t.ReqId))
+	}
+
 	o.available <- containerId
 }
 
 func (o *Orchestrator) runCode(containerId string, t domain.Task) (domain.ExecuteResponse, error) {
 	empty := domain.ExecuteResponse{}
-
 	// TODO Хочется придумать пул свободных файлов, чтобы просто их перезаписывать
-	file, err := os.CreateTemp(o.TempDir, "code-*."+t.Lang)
+	fileName := createFileName(t.Lang)
+	file, err := os.OpenFile(o.WorkingDir+"/"+fileName, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0666)
 	if err != nil {
 		return empty, err
 	}
@@ -262,7 +262,7 @@ func (o *Orchestrator) runCode(containerId string, t domain.Task) (domain.Execut
 	ctx := context.Background()
 
 	execResp, err := o.dockerClient.ContainerExecCreate(ctx, containerId, container.ExecOptions{
-		Cmd:          cmd(file.Name(), t.Lang),
+		Cmd:          cmd(fileName, t.Lang),
 		AttachStdout: true,
 		AttachStderr: true,
 		Tty:          false,
@@ -283,16 +283,10 @@ func (o *Orchestrator) runCode(containerId string, t domain.Task) (domain.Execut
 		return empty, err
 	}
 
-	return domain.ExecuteResponse{Resp: string(output)}, nil
-}
-
-func cmd(fileName, lang string) []string {
-	runner := ""
-	switch lang {
-	case "c":
-		runner = "" // TODO сюда нужно вставить команду на запуск си кода, если он будет. Пока на будущее
-	case "py":
-		runner = "python3"
+	resp, err := parseExecResp(output)
+	if err != nil {
+		return empty, err
 	}
-	return []string{runner, fileName}
+
+	return domain.ExecuteResponse{Resp: resp}, nil
 }
