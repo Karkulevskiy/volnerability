@@ -12,6 +12,13 @@ type Config struct {
 	Address     string        `json:"address"`
 	Timeout     time.Duration `json:"timeout"`
 	IdleTimeout time.Duration `json:"idle_timeout"`
+	TokenTTL 	time.Duration `json:"token_ttl"`
+	GRPCCfg 	GRPCConfig	  `json:"grpc"`
+}
+
+type GRPCConfig struct{
+	Port int 			  `json:"port"`
+	Timeout time.Duration `json:"timeout"`
 }
 
 func MustLoad() *Config {
@@ -41,5 +48,10 @@ func defaultConfig() *Config {
 		Timeout:     time.Second * 4,
 		StoragePath: "./db",
 		IdleTimeout: time.Second * 30,
+		TokenTTL: time.Hour * 1,
+		GRPCCfg: GRPCConfig{
+			Port:8085,
+			Timeout: time.Second * 5,
+		},
 	}
 }
