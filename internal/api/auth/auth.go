@@ -5,14 +5,51 @@ import (
 	"net/http"
 	"volnerability-game/internal/lib/logger/utils"
 
+	authv1 "volnerability-game/protos/gen/auth"
+
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/render"
+	"golang.org/x/net/context"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // TODO имплементировать логику логина, регистрации
 type Auther interface {
-	Login() error
-	Register() error
+	Login(ctx context.Context, email string, password string) (token string, err error)
+	Register(ctx context.Context, email string, password string) (UserID int64, err error)
+}
+
+type serverApi struct {
+	authv1.UnimplementedAuthServer
+	auth Auther
+}
+
+func Register(gRPC *grpc.Server, auth Auther) {
+	authv1.RegisterAuthServer(gRPC, &serverApi{})
+}
+
+func (s *serverApi) Login(ctx context.Context, req *authv1.LoginRequest) (res *authv1.LoginResponse, err error) {
+	if req.GetEmail() == "" {
+		return nil, status.Error(codes.InvalidArgument, "email is required")
+	}
+
+	if req.GetPassword() == "" {
+		return nil, status.Error(codes.InvalidArgument, "password is required")
+	}
+
+	if token, err:= s.auth.Login(ctx, req.GetEmail(), req.GetPassword()); err!=nil{
+
+	}
+
+	return &authv1.LoginResponse{
+		Token: "",
+	}, nil
+}
+
+func (s *serverApi) Register(ctx context.Context, req *authv1.RegisterRequest) (res *authv1.RegisterResponse, err error) {
+	panic("implement me")
 }
 
 type Request struct {

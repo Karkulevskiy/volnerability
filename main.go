@@ -16,6 +16,7 @@ import (
 	"volnerability-game/internal/cfg"
 	coderunner "volnerability-game/internal/codeRunner"
 	containermgr "volnerability-game/internal/containerMgr"
+	grpcmanager "volnerability-game/internal/app/grpc" //TODO : хз как назвать
 	"volnerability-game/internal/db"
 	"volnerability-game/internal/lib/logger"
 	"volnerability-game/internal/lib/logger/utils"
@@ -56,6 +57,10 @@ func main() {
 	l.Info("containers started")
 
 	codeRunner := coderunner.New(orchestrator.Dir)
+
+	//TODO: запуск grpcApp
+	grpcSrv := grpcmanager.New(l, cfg.GRPCCfg.Port)
+	go grpcSrv.MustRun()
 
 	r := chi.NewRouter()
 
@@ -98,8 +103,8 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	if err := srv.Shutdown(ctx); err != nil {
-		l.Error("failed to stop server: ", utils.Err(err))
+	if err := srv.Shutdown(ctx); err != nil { 
+		l.Error("failed to stop server: ", utils.Err(err)) // Пожожди я попробую инет ребутнуть
 	}
 
 	//TODO close db
