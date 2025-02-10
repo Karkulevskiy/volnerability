@@ -1,14 +1,32 @@
 package db
 
+import (
+	"database/sql"
+)
 
 type Storage struct {
-	// TODO выбрать окончательно какая будет бд
+	db *sql.DB
 }
 
 func New(storagePath string) (*Storage, error) {
-	//TODO добавить логику инициализации БД
+	// const op = "storage.slqite.New"
 
-	return  &Storage{}, nil
+	// db, err := sql.Open("sqlite3", storagePath)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("%s: %w", op, err)
+	// }
+
+	// stmt, err := db.Prepare(``) //TODO добавить инициализацию таблиц
+	// if err != nil {
+	// 	return nil, fmt.Errorf("%s: %w", op, err)
+	// }
+
+	// if _, err = stmt.Exec(); err != nil {
+	// 	return nil, fmt.Errorf("%s: %w", op, err)
+	// }
+
+	// return &Storage{db: db}, nil
+	return &Storage{}, nil
 }
 
 func (s *Storage) Login() error {

@@ -24,7 +24,7 @@ type Response struct {
 
 func New(l *slog.Logger, auth Auther) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		l.With(
+		l = l.With(
 			slog.String("op", "rest.auth.New"), // Задаем тип операции (чтобы это отображалось в логах)
 			slog.String("request_id", middleware.GetReqID(r.Context())),
 		)

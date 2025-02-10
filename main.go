@@ -23,7 +23,6 @@ import (
 	"github.com/go-chi/chi/middleware"
 )
 
-// TODO сильно много логгирования, поправить, убрав ненужные, повторяющиеся логи
 func main() {
 	logFile, err := os.OpenFile("game.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {

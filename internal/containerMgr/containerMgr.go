@@ -114,6 +114,7 @@ func (o *Orchestrator) RunContainers() error {
 				return err
 			}
 		}
+		o.l.Info(fmt.Sprintf("start container: %s", id))
 	}
 
 	go o.taskProcessor()

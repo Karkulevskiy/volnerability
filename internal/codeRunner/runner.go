@@ -37,9 +37,9 @@ func (r *CodeRunner) Run(code, lang, reqId string) (string, error) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
-	// TODO или тут прокидывать контекст с дедлайном, прям в таску?
-	// Тут утечка горутин будет 100 %, нужен дедлайн
+
 	r.queue <- task
+
 	for {
 		select {
 		case resp := <-task.Resp:

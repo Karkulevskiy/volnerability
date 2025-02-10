@@ -21,19 +21,19 @@ type Runner interface {
 
 func New(l *slog.Logger, runner Runner) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		l.With(
-			slog.String("op", "rest.code.New"), // Задаем тип операции (чтобы это отображалось в логах)
+		l = l.With(
+			slog.String("op", "rest.code.New"),
 			slog.String("request_id", middleware.GetReqID(r.Context())),
 		)
 
-		reqId := r.Header.Get("X-Request-ID")
+		reqId := r.Context().Value(middleware.RequestIDKey).(string)
+
 		req := Request{}
 		if err := render.DecodeJSON(r.Body, &req); err != nil {
 			l.Error("failed parse request body", utils.Err(err))
 			render.JSON(w, r, err)
 			return
 		}
-
 		l.Info("request body decoded", slog.Any("request", req))
 
 		// TODO подумать над валидацией. Вообще стоит обсудить это детальнее
