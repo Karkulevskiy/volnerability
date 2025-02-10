@@ -2,44 +2,41 @@ package cfg
 
 import (
 	"log"
+	"os"
 	"time"
 
-	"github.com/spf13/viper"
+	"github.com/ilyakaznacheev/cleanenv"
 )
 
 type Config struct {
-	StoragePath string        `json:"storage_path"`
-	Address     string        `json:"address"`
-	Timeout     time.Duration `json:"timeout"`
-	IdleTimeout time.Duration `json:"idle_timeout"`
+	HttpServer         `yaml:"http_server"`
+	OrchestratorConfig `yaml:"orchestrator_config"`
+}
+
+type HttpServer struct {
+	StoragePath string        `yaml:"storage_path" env-default:"./db"`
+	Address     string        `yaml:"address" env-default:"0.0.0.0:8080"`
+	Timeout     time.Duration `yaml:"timeout" env-default:"4s"`
+	IdleTimeout time.Duration `yaml:"idle_timeout" env-default:"60s"`
+}
+
+type OrchestratorConfig struct {
+	TempDir   string `yaml:"temp_dir"`
+	TargetDir string `yaml:"target_dir" env-default:"/home"`
+	ImageName string `yaml:"image_name" env-default:"code-runner"`
 }
 
 func MustLoad() *Config {
-	viper.SetConfigFile("./internal/cfg/cfg.json")
-
-	if err := viper.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			log.Println("cfg file was not found, using default settings")
-			return defaultConfig()
-		} else {
-			log.Fatalf("failed read config: %v", err)
-		}
+	const cfgPath = "./internal/cfg/cfg.yaml"
+	if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
+		log.Fatalf("cfg not found in: %s", cfgPath)
 	}
 
 	cfg := &Config{}
 
-	if err := viper.Unmarshal(cfg); err != nil {
-		log.Fatalf("failed parse config: %v", err)
+	if err := cleanenv.ReadConfig(cfgPath, cfg); err != nil {
+		log.Fatalf("failed to read config: %v", err)
 	}
 
 	return cfg
-}
-
-func defaultConfig() *Config {
-	return &Config{
-		Address:     "0.0.0.0:8082",
-		Timeout:     time.Second * 4,
-		StoragePath: "./db",
-		IdleTimeout: time.Second * 30,
-	}
 }

@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"log"
 	"log/slog"
@@ -24,8 +23,7 @@ import (
 	"github.com/go-chi/chi/middleware"
 )
 
-// TODO запуск контейнеров
-
+// TODO сильно много логгирования, поправить, убрав ненужные, повторяющиеся логи
 func main() {
 	logFile, err := os.OpenFile("game.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
@@ -35,37 +33,42 @@ func main() {
 
 	cfg := cfg.MustLoad()
 
-	l := slog.New(
-		slog.NewJSONHandler(
-			io.MultiWriter(logFile, os.Stdout), nil))
+	l := slog.New(slog.NewTextHandler(
+		io.MultiWriter(logFile, os.Stdout),
+		&slog.HandlerOptions{AddSource: true}))
 
 	db, err := db.New(cfg.StoragePath)
 	if err != nil {
-		l.Error("failed to init storage", utils.Err(err))
-		os.Exit(1)
+		panic(err)
 	}
 
-	l.Info(fmt.Sprintf("%v", cfg))
+	orchestrator, err := containermgr.New(l, cfg.OrchestratorConfig)
+	if err != nil {
+		panic(err)
+	}
+
+	defer func() {
+		l.Info("stopping containers")
+		if err := orchestrator.Stop(); err != nil {
+			l.Error("failed stop containers", utils.Err(err))
+		}
+	}()
 
 	l.Info("start containers")
-	orchestrator := containermgr.New() // TODO должен быть в mw ? Откуда будет узнавать нагрузку? Как будет выбирать свободный контейнер?
 	if err := orchestrator.RunContainers(); err != nil {
-		l.Error("failed run containers", utils.Err(err))
-		os.Exit(2)
+		panic(err)
 	}
 	l.Info("containers started")
 
-	codeRunner := coderunner.New(orchestrator.Dir)
-
 	r := chi.NewRouter()
-
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Logger)
 	r.Use(logger.New(l))
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.URLFormat)
 
-	// routing
+	codeRunner := coderunner.New(l, orchestrator.Queue)
+
 	r.Post("/login", auth.New(l, db)) // TODO логин
 	r.Post("/register", nil)          // TODO регистрация
 	r.Post("/code", code.New(l, codeRunner))
@@ -85,21 +88,19 @@ func main() {
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil {
-			l.Error("failed to start server")
+			l.Error("failed to start server", utils.Err(err))
 		}
 	}()
-
 	l.Info("server started")
 
 	<-done
-
-	l.Info("stopping server")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	if err := srv.Shutdown(ctx); err != nil {
 		l.Error("failed to stop server: ", utils.Err(err))
+		return
 	}
 
 	//TODO close db
