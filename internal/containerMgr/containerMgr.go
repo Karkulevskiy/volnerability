@@ -38,7 +38,6 @@ type Orchestrator struct {
 	dockerClient *client.Client
 }
 
-// TODO удаление временных файлов после остановки приложения
 func New(l *slog.Logger, cfg cfg.OrchestratorConfig) (Orchestrator, error) {
 	wdPath, err := wdPathForCodes()
 	if err != nil {
@@ -72,7 +71,6 @@ func New(l *slog.Logger, cfg cfg.OrchestratorConfig) (Orchestrator, error) {
 	}, nil
 }
 
-// TODО Ctrl+C останавливает почему то с ошибкой 1
 func (o *Orchestrator) Stop() error {
 	for _, id := range o.containers {
 		if err := o.dockerClient.ContainerPause(context.Background(), id); err != nil {
@@ -86,6 +84,18 @@ func (o *Orchestrator) Stop() error {
 	close(o.available)
 	close(o.Queue)
 
+	if err := o.cleanTempFiles(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (o *Orchestrator) cleanTempFiles() error {
+	if err := os.RemoveAll(o.WorkingDir); err != nil {
+		o.l.Error("failed to remove working directory with codes", utils.Err(err))
+		return err
+	}
 	return nil
 }
 

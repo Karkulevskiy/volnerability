@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log"
 	"log/slog"
@@ -87,6 +88,10 @@ func main() {
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil {
+			if errors.Is(err, http.ErrServerClosed) {
+				l.Info("server stopped")
+				return
+			}
 			l.Error("failed to start server", utils.Err(err))
 		}
 	}()
@@ -103,6 +108,4 @@ func main() {
 	}
 
 	//TODO close db
-
-	l.Info("server stopped")
 }
