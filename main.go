@@ -22,6 +22,7 @@ import (
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
+	_ "github.com/mattn/go-sqlite3" // SQLite драйвер
 )
 
 func main() {
@@ -39,6 +40,10 @@ func main() {
 
 	db, err := db.New(cfg.StoragePath)
 	if err != nil {
+		panic(err)
+	}
+
+	if err := db.Init(cfg.MigrationPath, cfg.StoragePath); err != nil {
 		panic(err)
 	}
 

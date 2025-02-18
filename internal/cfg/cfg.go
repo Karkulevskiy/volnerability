@@ -14,10 +14,11 @@ type Config struct {
 }
 
 type HttpServer struct {
-	StoragePath string        `yaml:"storage_path" env-default:"./db"`
-	Address     string        `yaml:"address" env-default:"0.0.0.0:8080"`
-	Timeout     time.Duration `yaml:"timeout" env-default:"4s"`
-	IdleTimeout time.Duration `yaml:"idle_timeout" env-default:"60s"`
+	StoragePath   string        `yaml:"storage_path" env-default:"./internal/db/storage.db"`
+	MigrationPath string        `yaml:"migration_path" env-default:"./internal/db/init.sql"`
+	Address       string        `yaml:"address" env-default:"0.0.0.0:8080"`
+	Timeout       time.Duration `yaml:"timeout" env-default:"4s"`
+	IdleTimeout   time.Duration `yaml:"idle_timeout" env-default:"60s"`
 }
 
 type OrchestratorConfig struct {
