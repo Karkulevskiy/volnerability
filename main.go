@@ -11,12 +11,10 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
-	"volnerability-game/internal/api/auth"
-	"volnerability-game/internal/api/code"
 	"volnerability-game/internal/cfg"
 	coderunner "volnerability-game/internal/codeRunner"
 	containermgr "volnerability-game/internal/containerMgr"
-	grpcmanager "volnerability-game/internal/app/grpc" //TODO : хз как назвать
+	grpcmgr "volnerability-game/auth/app/grpc"
 	"volnerability-game/internal/db"
 	"volnerability-game/internal/lib/logger"
 	"volnerability-game/internal/lib/logger/utils"
@@ -58,8 +56,8 @@ func main() {
 
 	codeRunner := coderunner.New(orchestrator.Dir)
 
-	//TODO: запуск grpcApp
-	grpcSrv := grpcmanager.New(l, cfg.GRPCCfg.Port)
+	//запуск grpcApp
+	grpcSrv := grpcmgr.New(l, cfg.GRPCCfg.Port)
 	go grpcSrv.MustRun()
 
 	r := chi.NewRouter()
@@ -71,9 +69,9 @@ func main() {
 	r.Use(middleware.URLFormat)
 
 	// routing
-	r.Post("/login", auth.New(l, db)) // TODO логин
-	r.Post("/register", nil)          // TODO регистрация
-	r.Post("/code", code.New(l, codeRunner))
+	// r.Post("/login", auth.New(l, db)) // TODO логин
+	// r.Post("/register", nil)          // TODO регистрация
+	// r.Post("/code", code.New(l, codeRunner)) //Как будто бы это не нужно уже, но пока хз, оставлю на всякий
 
 	l.Info("starting server", slog.String("address", cfg.Address))
 
