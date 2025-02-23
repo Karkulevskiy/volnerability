@@ -43,7 +43,7 @@ func main() {
 		panic(err)
 	}
 
-	if err := db.Init(cfg.MigrationPath, cfg.StoragePath); err != nil {
+	if err := db.Init(cfg.StoragePath); err != nil {
 		panic(err)
 	}
 
