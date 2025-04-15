@@ -11,11 +11,10 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
-	"volnerability-game/internal/api/auth"
-	"volnerability-game/internal/api/code"
 	"volnerability-game/internal/cfg"
 	coderunner "volnerability-game/internal/codeRunner"
 	containermgr "volnerability-game/internal/containerMgr"
+	grpcmgr "volnerability-game/auth/app/grpc"
 	"volnerability-game/internal/db"
 	"volnerability-game/internal/lib/logger"
 	"volnerability-game/internal/lib/logger/utils"
@@ -64,6 +63,12 @@ func main() {
 		panic(err)
 	}
 	l.Info("containers started")
+
+	codeRunner := coderunner.New(orchestrator.Dir)
+
+	//запуск grpcApp
+	grpcSrv := grpcmgr.New(l, cfg.GRPCCfg.Port)
+	go grpcSrv.MustRun()
 
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)

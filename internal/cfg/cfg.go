@@ -25,6 +25,13 @@ type OrchestratorConfig struct {
 	TempDir   string `yaml:"temp_dir"`
 	TargetDir string `yaml:"target_dir" env-default:"/home"`
 	ImageName string `yaml:"image_name" env-default:"code-runner"`
+	TokenTTL 	time.Duration `json:"token_ttl"`
+	GRPCCfg 	GRPCConfig	  `json:"grpc"`
+}
+
+type GRPCConfig struct{
+	Port int 			  `json:"port"`
+	Timeout time.Duration `json:"timeout"`
 }
 
 func MustLoad() *Config {
