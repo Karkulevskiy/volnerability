@@ -12,13 +12,14 @@ import (
 	"syscall"
 	"time"
 	"volnerability-game/internal/cfg"
+
 	//coderunner "volnerability-game/internal/codeRunner"
-	containermgr "volnerability-game/internal/containerMgr"
+	//containermgr "volnerability-game/internal/containerMgr"
 	grpcmgr "volnerability-game/auth/app/grpc"
+	authservice "volnerability-game/auth/services"
 	"volnerability-game/internal/db"
 	"volnerability-game/internal/lib/logger"
 	"volnerability-game/internal/lib/logger/utils"
-	authservice "volnerability-game/auth/services"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
@@ -47,28 +48,28 @@ func main() {
 		panic(err)
 	}
 
-	orchestrator, err := containermgr.New(l, cfg.OrchestratorConfig)
-	if err != nil {
-		panic(err)
-	}
+	// orchestrator, err := containermgr.New(l, cfg.OrchestratorConfig)
+	// if err != nil {
+	// 	panic(err)
+	// }
 
-	defer func() {
-		l.Info("stopping containers")
-		if err := orchestrator.Stop(); err != nil {
-			l.Error("failed stop containers", utils.Err(err))
-		}
-	}()
+	// defer func() {
+	// 	l.Info("stopping containers")
+	// 	if err := orchestrator.Stop(); err != nil {
+	// 		l.Error("failed stop containers", utils.Err(err))
+	// 	}
+	// }()
 
-	l.Info("start containers")
-	if err := orchestrator.RunContainers(); err != nil {
-		panic(err)
-	}
-	l.Info("containers started")
+	// l.Info("start containers")
+	// if err := orchestrator.RunContainers(); err != nil {
+	// 	panic(err)
+	// }
+	// l.Info("containers started")
 
 	//codeRunner := coderunner.New(orchestrator.Dir)
 
 	//запуск grpcApp
-	authSerivce := authservice.New(l, db, db, cfg.TokenTTL, "12345") // TODO поменять JWTSecret
+	authSerivce := authservice.New(l, db, db, time.Duration(cfg.TokenTTL), "12345") // TODO поменять JWTSecret
 	grpcSrv := grpcmgr.New(l, *authSerivce, cfg.GRPCCfg.Port)
 	go grpcSrv.MustRun()
 
@@ -91,9 +92,9 @@ func main() {
 	srv := &http.Server{
 		Addr:         cfg.Address,
 		Handler:      r,
-		ReadTimeout:  cfg.Timeout,
-		WriteTimeout: cfg.Timeout,
-		IdleTimeout:  cfg.IdleTimeout,
+		ReadTimeout:  time.Duration(cfg.Timeout),
+		WriteTimeout: time.Duration(cfg.Timeout),
+		IdleTimeout:  time.Duration(cfg.IdleTimeout),
 	}
 
 	go func() {

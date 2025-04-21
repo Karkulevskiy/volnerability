@@ -41,7 +41,8 @@ func (app *App) Run() error {
 	)
 
 	log.Info("starting gRPC server")
-	listener, err := net.Listen("tcp", strconv.Itoa(app.port))
+	grpcAddress := "127.0.0.1" + strconv.Itoa(app.port)
+	listener, err := net.Listen("tcp", grpcAddress)
 	if err != nil {
 		return fmt.Errorf("grpcapp.Run: %w", err)
 	}
