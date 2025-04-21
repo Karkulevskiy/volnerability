@@ -1,9 +1,11 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"os"
+	"volnerability-game/internal/domain/models"
 
 	_ "github.com/golang-migrate/migrate/v4/database/sqlite3"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
@@ -85,12 +87,12 @@ func (s *Storage) Close() error {
 	return s.db.Close()
 }
 
-func (s *Storage) Login() error {
+func (s *Storage) SaveUser(ctx context.Context, email string, passHash []byte) (uid int64, err error) {
 	// TODO implement me
-	return nil
+	return 0, nil
 }
 
-func (s *Storage) Register() error {
+func (s *Storage) User(ctx context.Context, email string) (models.User, error) {
 	// TODO implement me
-	return nil
+	return models.User{}, nil
 }

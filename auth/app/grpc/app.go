@@ -23,11 +23,9 @@ func (app *App) MustRun() {
 	}
 }
 
-func New(log *slog.Logger, port int) *App {
+func New(log *slog.Logger, authService authservice.Auth, port int) *App {
 	gRPCServer := grpc.NewServer()
-	//TODO: после написания слоя работы с базами данных завести auth по след принципу ```auth := authservice.New(log, )``` и передать его в authgrpc.Register()
-
-	authgrpc.Register(gRPCServer)
+	authgrpc.Register(gRPCServer, &authService)
 
 	return &App{
 		log,

@@ -12,12 +12,13 @@ import (
 	"syscall"
 	"time"
 	"volnerability-game/internal/cfg"
-	coderunner "volnerability-game/internal/codeRunner"
+	//coderunner "volnerability-game/internal/codeRunner"
 	containermgr "volnerability-game/internal/containerMgr"
 	grpcmgr "volnerability-game/auth/app/grpc"
 	"volnerability-game/internal/db"
 	"volnerability-game/internal/lib/logger"
 	"volnerability-game/internal/lib/logger/utils"
+	authservice "volnerability-game/auth/services"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
@@ -64,10 +65,11 @@ func main() {
 	}
 	l.Info("containers started")
 
-	codeRunner := coderunner.New(orchestrator.Dir)
+	//codeRunner := coderunner.New(orchestrator.Dir)
 
 	//запуск grpcApp
-	grpcSrv := grpcmgr.New(l, cfg.GRPCCfg.Port)
+	authSerivce := authservice.New(l, db, db, cfg.TokenTTL, "12345") // TODO поменять JWTSecret
+	grpcSrv := grpcmgr.New(l, *authSerivce, cfg.GRPCCfg.Port)
 	go grpcSrv.MustRun()
 
 	r := chi.NewRouter()
@@ -77,11 +79,9 @@ func main() {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.URLFormat)
 
-	codeRunner := coderunner.New(l, orchestrator.Queue)
+	//codeRunner = coderunner.New(l, orchestrator.Queue)
 
-	r.Post("/login", auth.New(l, db)) // TODO логин
-	r.Post("/register", nil)          // TODO регистрация
-	r.Post("/code", code.New(l, codeRunner))
+	// r.Post("/code", code.New(l, codeRunner))
 
 	l.Info("starting server", slog.String("address", cfg.Address))
 
