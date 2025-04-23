@@ -1,180 +1,273 @@
-import { useState } from "react";
-import Editor from "@monaco-editor/react";
+// App.js
+import { useState, useMemo } from "react";
+import { ThemeProvider, createTheme } from "@mui/material/styles";
+import {
+  CssBaseline,
+  IconButton,
+  Container,
+  Box,
+  Typography,
+  Button,
+  TextField,
+  Paper,
+  Grid,
+  Tabs,
+  Tab,
+  Divider
+} from "@mui/material";
+import { Brightness4, Brightness7 } from "@mui/icons-material";
 import { motion } from "framer-motion";
+import Editor from "@monaco-editor/react";
 
-export default function App() {
-  // Состояния для кода, вывода, уровня, аутентификации и формы
-  const [code, setCode] = useState("print('Hello, world!')");
-  const [output, setOutput] = useState("");
-  const [level, setLevel] = useState(1);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [authMode, setAuthMode] = useState("login");
+function AuthForm({ authMode, setAuthMode, onAuth }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [emailError, setEmailError] = useState("");  // Состояние для ошибок почты
-  const [passwordError, setPasswordError] = useState("");  // Состояние для ошибок пароля
+  const [emailError, setEmailError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
 
-  // Функция для обработки аутентификации
-  const handleAuth = () => {
-    // Проверка на пустые поля
-    if (!email || !password) {
-      if (!email) setEmailError("Пожалуйста, введите email.");
-      if (!password) setPasswordError("Пожалуйста, введите пароль.");
-      return;
-    }
+  const handleSubmit = () => {
+    setEmailError("");
+    setPasswordError("");
 
-    // Проверка на валидность email
-    const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/;
-    if (!emailRegex.test(email)) {
-      setEmailError("Введите корректный email.");
-      return;
-    }
+    if (!email) setEmailError("Введите email.");
+    if (!password) setPasswordError("Введите пароль.");
 
-    // Если всё в порядке, аутентифицируем пользователя
-    setIsAuthenticated(true);
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (email && !emailRegex.test(email)) setEmailError("Некорректный email.");
+
+    if (email && password && emailRegex.test(email)) onAuth();
   };
 
-  // Функция для обработки выполнения кода
-  const handleRunCode = async () => {
-    try {
-      const result = {
-        success: code.includes("flag"),
-        output: code.includes("flag")
-          ? `✅ Доступ получен! Уровень ${level} пройден.`
-          : "❌ Уязвимость не найдена. Попробуй ещё раз.",
-      };
-      setOutput(result.output);
-      if (result.success) setLevel(level + 1);
-    } catch (err) {
-      setOutput("Ошибка выполнения кода.");
-    }
-  };
-
-  // Если пользователь не аутентифицирован, показываем форму логина или регистрации
-  if (!isAuthenticated) {
-    return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#f5f5f5", padding: 16 }}>
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          style={{ width: "100%", maxWidth: 400, backgroundColor: "white", borderRadius: 16, padding: 24, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}
-        >
-          <h2 style={{ fontSize: 24, fontWeight: "bold", textAlign: "center", marginBottom: 16 }}>
-            {authMode === "login" ? "Вход" : "Регистрация"}
-          </h2>
-          {/* Ввод email с проверкой на ошибки */}
-          <input
-            type="email"
-            placeholder="Email"
-            style={{ width: "100%", border: "1px solid #ccc", borderRadius: 8, padding: 10, marginBottom: 12 }}
-            value={email}
-            onChange={(e) => { setEmail(e.target.value); setEmailError(""); }} // сбросить ошибку при изменении
-          />
-          {emailError && <p style={{ color: "red", fontSize: 12 }}>{emailError}</p>}  {/* Ошибка для email */}
-          
-          {/* Ввод пароля с проверкой на ошибки */}
-          <input
-            type="password"
-            placeholder="Пароль"
-            style={{ width: "100%", border: "1px solid #ccc", borderRadius: 8, padding: 10, marginBottom: 12 }}
-            value={password}
-            onChange={(e) => { setPassword(e.target.value); setPasswordError(""); }} // сбросить ошибку при изменении
-          />
-          {passwordError && <p style={{ color: "red", fontSize: 12 }}>{passwordError}</p>}  {/* Ошибка для пароля */}
-
-          {/* Кнопка для входа или регистрации */}
-          <button style={{ width: "100%", padding: 12, backgroundColor: "#007bff", color: "white", borderRadius: 8, border: "none", cursor: "pointer" }} onClick={handleAuth}>
-            {authMode === "login" ? "Войти" : "Зарегистрироваться"}
-          </button>
-
-          <p style={{ fontSize: 14, textAlign: "center", marginTop: 12 }}>
-            {authMode === "login" ? (
-              <>
-                Нет аккаунта?{' '}
-                <button onClick={() => setAuthMode("register")} style={{ color: "#007bff", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}>
-                  Зарегистрироваться
-                </button>
-              </>
-            ) : (
-              <>
-                Уже есть аккаунт?{' '}
-                <button onClick={() => setAuthMode("login")} style={{ color: "#007bff", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}>
-                  Войти
-                </button>
-              </>
-            )}
-          </p>
-        </motion.div>
-      </div>
-    );
-  }
-
-  // Главная часть, если пользователь аутентифицирован
   return (
-    <div style={{ minHeight: "100vh", backgroundColor: "#f5f5f5", color: "#1a1a1a" }}>
-      {/* Панель уровней сверху */}
-      <div style={{ backgroundColor: "white", boxShadow: "0 1px 4px rgba(0,0,0,0.1)", padding: "16px 24px", display: "flex", flexWrap: "wrap", justifyContent: "flex-start" }}>
+    <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        <Container maxWidth="xs">
+          <Paper elevation={3} sx={{ p: 4, borderRadius: 4 }}>
+            <Typography variant="h5" align="center" gutterBottom>
+              {authMode === "login" ? "Вход" : "Регистрация"}
+            </Typography>
+
+            <TextField
+              fullWidth
+              label="Email"
+              type="email"
+              margin="normal"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              error={Boolean(emailError)}
+              helperText={emailError}
+            />
+
+            <TextField
+              fullWidth
+              label="Пароль"
+              type="password"
+              margin="normal"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              error={Boolean(passwordError)}
+              helperText={passwordError}
+            />
+
+            <Button
+              fullWidth
+              variant="contained"
+              color="primary"
+              sx={{ mt: 2 }}
+              onClick={handleSubmit}
+            >
+              {authMode === "login" ? "Войти" : "Зарегистрироваться"}
+            </Button>
+
+            <Box textAlign="center" mt={2}>
+              <Button
+                variant="text"
+                onClick={() => setAuthMode(authMode === "login" ? "register" : "login")}
+              >
+                {authMode === "login" ? "Нет аккаунта? Зарегистрироваться" : "Уже есть аккаунт? Войти"}
+              </Button>
+            </Box>
+          </Paper>
+        </Container>
+      </motion.div>
+    </Box>
+  );
+}
+
+function MainScreen({ level, setLevel, code, setCode, output, handleRunCode }) {
+  return (
+  <Container maxWidth="xl" disableGutters sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+  {/* Верх: кнопки уровней */}
+  <Box sx={{ p: 2 }}>
+    <Paper elevation={3} sx={{ p: 2, borderRadius: 2 }}>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
         {[...Array(20)].map((_, index) => (
-          <div
+          <Button
             key={index}
-            style={{
-              width: 40,
-              height: 40,
-              margin: 5,
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              borderRadius: 8,
-              backgroundColor: level > index ? "green" : "gray",
-              color: "white",
-              fontWeight: "bold",
-              cursor: "pointer"
-            }}
+            size="small"
+            variant={level === index + 1 ? "contained" : "outlined"}
+            color={level > index ? "success" : "inherit"}
             onClick={() => setLevel(index + 1)}
           >
             {index + 1}
-          </div>
+          </Button>
         ))}
-      </div>
+      </Box>
+    </Paper>
+  </Box>
 
-      {/* Основной контент с задачами и редактором */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 24, padding: 24 }}>
-        <motion.div
-          initial={{ opacity: 0, x: -30 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.4 }}
-          style={{ backgroundColor: "white", borderRadius: 16, padding: 16 }}
-        >
-          <h2 style={{ fontSize: 20, fontWeight: "bold", marginBottom: 8 }}>Уровень {level}</h2>
-          <p>Найди уязвимость и получи доступ к секретным данным!</p>
-        </motion.div>
+  {/* Нижняя часть */}
+  <Box sx={{ flex: 1, display: 'flex', overflow: 'hidden', px: 2, pb: 2 }}>
+    {/* Левая колонка: задача */}
+    <Box sx={{ width: '30%', minWidth: 280, overflowY: 'auto' }}>
+      <Paper
+        elevation={3}
+        sx={{
+          p: 2,
+          borderRadius: 3,
+          height: '100%',
+          border: '1px solid #ccc',
+          backgroundColor: '#f9f9f9'
+        }}
+      >
+        <Typography variant="h6" gutterBottom>
+          Задача уровня {level}
+        </Typography>
+        <Typography variant="body1">
+          Найди уязвимость и получи доступ к секретным данным!
+        </Typography>
+      </Paper>
+    </Box>
 
-        <motion.div
-          initial={{ opacity: 0, x: 30 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.4 }}
-          style={{ backgroundColor: "white", borderRadius: 16, padding: 16 }}
-        >
+    {/* Правая колонка */}
+    <Box sx={{ flex: 1, ml: 2, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* Редактор */}
+      <Paper
+        elevation={3}
+        sx={{
+          p: 2,
+          borderRadius: 3,
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          backgroundColor: '#1e1e1e',
+        }}
+      >
+        <Box sx={{ flex: 1, minHeight: 0 }}>
           <Editor
-            height="300px"
+            height="100%"
             defaultLanguage="python"
             value={code}
-            onChange={(value) => setCode(value || "")}
+            onChange={(val) => setCode(val || "")}
             theme="vs-dark"
             options={{ fontSize: 14, minimap: { enabled: false } }}
           />
-          <button style={{ marginTop: 12, marginBottom: 12, padding: 12, backgroundColor: "#28a745", color: "white", border: "none", borderRadius: 8, cursor: "pointer" }} onClick={handleRunCode}>
-            Отправить код
-          </button>
-          <textarea
-            readOnly
-            value={output}
-            placeholder="Здесь будет результат..."
-            style={{ width: "100%", height: 100, backgroundColor: "#f0f0f0", border: "1px solid #ccc", borderRadius: 8, padding: 8 }}
-          />
-        </motion.div>
-      </div>
-    </div>
+        </Box>
+        <Button
+          variant="contained"
+          color="success"
+          sx={{ mt: 2, alignSelf: 'flex-start', borderRadius: 2 }}
+          onClick={handleRunCode}
+        >
+          Отправить код
+        </Button>
+      </Paper>
+
+      {/* Терминал */}
+      <Paper
+        elevation={3}
+        sx={{
+          p: 2,
+          borderRadius: 3,
+          mt: 2,
+          border: '1px solid #ccc',
+          backgroundColor: '#f1f1f1'
+        }}
+      >
+        <Typography variant="subtitle1" gutterBottom>
+          Результат выполнения:
+        </Typography>
+        <TextField
+          fullWidth
+          multiline
+          value={output}
+          InputProps={{
+            readOnly: true,
+            sx: { fontFamily: 'monospace' }
+          }}
+          rows={4}
+          placeholder="Здесь будет результат..."
+        />
+      </Paper>
+    </Box>
+  </Box>
+</Container>
+
+  );
+}
+
+export default function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authMode, setAuthMode] = useState("login");
+  const [darkMode, setDarkMode] = useState(false);
+
+  const [level, setLevel] = useState(1);
+  const [code, setCode] = useState("print('Hello, world!')");
+  const [output, setOutput] = useState("");
+
+  const theme = useMemo(() => createTheme({
+    palette: {
+      mode: darkMode ? "dark" : "light",
+    },
+    typography: {
+      fontFamily: "'Figtree', 'Roboto', sans-serif",
+    },
+  }), [darkMode]);
+
+  const toggleTheme = () => setDarkMode(!darkMode);
+
+  const handleRunCode = () => {
+    const result = {
+      success: code.includes("flag"),
+      output: code.includes("flag")
+        ? `✅ Доступ получен! Уровень ${level} пройден.`
+        : "❌ Уязвимость не найдена. Попробуй ещё раз.",
+    };
+    setOutput(result.output);
+    if (result.success) setLevel(level + 1);
+  };
+
+  return (
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+
+      <Box sx={{ position: "fixed", top: 16, right: 16, zIndex: 1200 }}>
+        <IconButton onClick={toggleTheme} color="inherit">
+          {darkMode ? <Brightness7 /> : <Brightness4 />}
+        </IconButton>
+      </Box>
+
+      {!isAuthenticated ? (
+        <AuthForm
+          authMode={authMode}
+          setAuthMode={setAuthMode}
+          onAuth={() => setIsAuthenticated(true)}
+        />
+      ) : (
+        <MainScreen
+          level={level}
+          setLevel={setLevel}
+          code={code}
+          setCode={setCode}
+          output={output}
+          handleRunCode={handleRunCode}
+        />
+      )}
+    </ThemeProvider>
   );
 }
