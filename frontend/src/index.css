@@ -1,7 +1,7 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap");
 
 body {
-  font-family: "Inter", sans-serif;
+  font-family: "monospace", sans-serif;
   margin: 0;
   background-color: var(--bg);
   color: var(--text);
@@ -123,4 +123,16 @@ textarea {
   border: 1px solid #ccc;
   border-radius: 8px;
   padding: 8px;
+}
+
+.split-horizontal > .gutter {
+  background-color: transparent;
+  cursor: col-resize;
+  width: 10px;
+}
+
+.split-vertical > .gutter {
+  background-color: transparent;
+  cursor: row-resize;
+  height: 8px;
 }

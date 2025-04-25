@@ -10,14 +10,11 @@ import {
   Button,
   TextField,
   Paper,
-  Grid,
-  Tabs,
-  Tab,
-  Divider
 } from "@mui/material";
 import { Brightness4, Brightness7 } from "@mui/icons-material";
 import { motion } from "framer-motion";
 import Editor from "@monaco-editor/react";
+import Split from "react-split";
 
 function AuthForm({ authMode, setAuthMode, onAuth }) {
   const [email, setEmail] = useState("");
@@ -88,7 +85,9 @@ function AuthForm({ authMode, setAuthMode, onAuth }) {
                 variant="text"
                 onClick={() => setAuthMode(authMode === "login" ? "register" : "login")}
               >
-                {authMode === "login" ? "Нет аккаунта? Зарегистрироваться" : "Уже есть аккаунт? Войти"}
+                {authMode === "login"
+                  ? "Нет аккаунта? Зарегистрироваться"
+                  : "Уже есть аккаунт? Войти"}
               </Button>
             </Box>
           </Paper>
@@ -98,116 +97,150 @@ function AuthForm({ authMode, setAuthMode, onAuth }) {
   );
 }
 
-function MainScreen({ level, setLevel, code, setCode, output, handleRunCode }) {
+function MainScreen({ level, setLevel, code, setCode, output, handleRunCode, darkMode }) {
   return (
-  <Container maxWidth="xl" disableGutters sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
-  {/* Верх: кнопки уровней */}
-  <Box sx={{ p: 2 }}>
-    <Paper elevation={3} sx={{ p: 2, borderRadius: 2 }}>
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-        {[...Array(20)].map((_, index) => (
-          <Button
-            key={index}
-            size="small"
-            variant={level === index + 1 ? "contained" : "outlined"}
-            color={level > index ? "success" : "inherit"}
-            onClick={() => setLevel(index + 1)}
-          >
-            {index + 1}
-          </Button>
-        ))}
+    <Container maxWidth="xl" disableGutters sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <Box sx={{ p: 2 }}>
+        <Paper elevation={3} sx={{ p: 2, borderRadius: 2 }}>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+            {[...Array(20)].map((_, index) => (
+              <Button
+                key={index}
+                size="small"
+                variant={level === index + 1 ? "contained" : "outlined"}
+                color={level > index ? "success" : "inherit"}
+                onClick={() => setLevel(index + 1)}
+              >
+                {index + 1}
+              </Button>
+            ))}
+          </Box>
+        </Paper>
       </Box>
-    </Paper>
-  </Box>
 
-  {/* Нижняя часть */}
-  <Box sx={{ flex: 1, display: 'flex', overflow: 'hidden', px: 2, pb: 2 }}>
-    {/* Левая колонка: задача */}
-    <Box sx={{ width: '30%', minWidth: 280, overflowY: 'auto' }}>
-      <Paper
-        elevation={3}
-        sx={{
-          p: 2,
-          borderRadius: 3,
-          height: '100%',
-          border: '1px solid #ccc',
-          backgroundColor: '#f9f9f9'
-        }}
-      >
-        <Typography variant="h6" gutterBottom>
-          Задача уровня {level}
-        </Typography>
-        <Typography variant="body1">
-          Найди уязвимость и получи доступ к секретным данным!
-        </Typography>
-      </Paper>
-    </Box>
-
-    {/* Правая колонка */}
-    <Box sx={{ flex: 1, ml: 2, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      {/* Редактор */}
-      <Paper
-        elevation={3}
-        sx={{
-          p: 2,
-          borderRadius: 3,
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-          backgroundColor: '#1e1e1e',
-        }}
-      >
-        <Box sx={{ flex: 1, minHeight: 0 }}>
-          <Editor
-            height="100%"
-            defaultLanguage="python"
-            value={code}
-            onChange={(val) => setCode(val || "")}
-            theme="vs-dark"
-            options={{ fontSize: 14, minimap: { enabled: false } }}
-          />
-        </Box>
-        <Button
-          variant="contained"
-          color="success"
-          sx={{ mt: 2, alignSelf: 'flex-start', borderRadius: 2 }}
-          onClick={handleRunCode}
+      <Box sx={{ flex: 1, overflow: 'hidden', px: 2, pb: 2 }}>
+        <Split
+          className="split-horizontal"
+          sizes={[30, 70]}
+          minSize={250}
+          gutterSize={10}
+          direction="horizontal"
+          style={{ display: 'flex', height: '100%' }}
         >
-          Отправить код
-        </Button>
-      </Paper>
+          <Paper
+            elevation={3}
+            sx={{
+              p: 2,
+              borderRadius: 3,
+              height: '100%',
+              border: '1px solid #ccc',
+              backgroundColor: theme => theme.palette.background.paper,
+              overflowY: 'auto',
+            }}
+          >
+            <Typography variant="h6" gutterBottom>
+              Задача уровня {level}
+            </Typography>
+            <Typography variant="body1">
+              Найди уязвимость и получи доступ к секретным данным!
+            </Typography>
+          </Paper>
 
-      {/* Терминал */}
-      <Paper
-        elevation={3}
-        sx={{
-          p: 2,
-          borderRadius: 3,
-          mt: 2,
-          border: '1px solid #ccc',
-          backgroundColor: '#f1f1f1'
-        }}
-      >
-        <Typography variant="subtitle1" gutterBottom>
-          Результат выполнения:
-        </Typography>
-        <TextField
-          fullWidth
-          multiline
-          value={output}
-          InputProps={{
-            readOnly: true,
-            sx: { fontFamily: 'monospace' }
-          }}
-          rows={4}
-          placeholder="Здесь будет результат..."
-        />
-      </Paper>
-    </Box>
-  </Box>
-</Container>
+          <Split
+            className="split-vertical"
+            sizes={[70, 30]}
+            minSize={100}
+            gutterSize={8}
+            direction="vertical"
+            style={{ display: 'flex', flexDirection: 'column', height: '100%' }}
+          >
+            <Paper
+              elevation={3}
+              sx={{
+                p: 2,
+                borderRadius: 3,
+                flex: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
+                bgcolor: theme => theme.palette.background.paper,
+              }}
+            >
+              <Box
+                sx={{
+                  flex: 1,
+                  minHeight: 0,
+                  overflow: 'hidden',
+                  borderRadius: 2,
+                  border: '1px solid',
+                  borderColor: theme => theme.palette.divider,
+                  '& .monaco-editor, & .monaco-editor .margin, & .monaco-editor-background': {
+                    borderRadius: 2,
+                    overflow: 'hidden',
+                  },
+                }}
+              >
+                <Editor
+                  height="100%"
+                  defaultLanguage="python"
+                  value={code}
+                  onChange={(val) => setCode(val || "")}
+                  theme={darkMode ? "vs-dark" : "light"}
+                  options={{
+                    fontSize: 18,
+                    minimap: { enabled: false },
+                    lineNumbers: "on",
+                    scrollbar: {
+                      verticalScrollbarSize: 8,
+                      horizontalScrollbarSize: 8,
+                    },
+                  }}
+                />
+              </Box>
+              <Button
+                variant="contained"
+                color="success"
+                sx={{ mt: 2, alignSelf: 'flex-start', borderRadius: 2 }}
+                onClick={handleRunCode}
+              >
+                Отправить код
+              </Button>
+            </Paper>
 
+            <Paper
+              elevation={3}
+              sx={{
+                p: 2,
+                borderRadius: 3,
+                border: '1px solid #ccc',
+                backgroundColor: theme => theme.palette.background.paper,
+                display: 'flex',
+                flexDirection: 'column',
+                height: '100%',
+                boxSizing: 'border-box',
+              }}
+            >
+              <Typography variant="subtitle1" gutterBottom>
+                Результат выполнения:
+              </Typography>
+              <Box sx={{ flex: 1, overflowY: 'auto' }}>
+                <TextField
+                  fullWidth
+                  multiline
+                  rows={2}
+                  value={output}
+                  InputProps={{
+                    readOnly: true,
+                    sx: { fontFamily: 'monospace' }
+                  }}
+                  placeholder="Здесь будет результат..."
+                />
+              </Box>
+            </Paper>
+          </Split>
+        </Split>
+      </Box>
+    </Container>
   );
 }
 
@@ -225,7 +258,8 @@ export default function App() {
       mode: darkMode ? "dark" : "light",
     },
     typography: {
-      fontFamily: "'Figtree', 'Roboto', sans-serif",
+      fontFamily: "monospace, sans-serif",
+      fontSize: 16,
     },
   }), [darkMode]);
 
@@ -245,8 +279,7 @@ export default function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-
-      <Box sx={{ position: "fixed", top: 16, right: 16, zIndex: 1200 }}>
+      <Box sx={{ position: "fixed", top: 8, right: 8, zIndex: 1200 }}>
         <IconButton onClick={toggleTheme} color="inherit">
           {darkMode ? <Brightness7 /> : <Brightness4 />}
         </IconButton>
@@ -266,6 +299,7 @@ export default function App() {
           setCode={setCode}
           output={output}
           handleRunCode={handleRunCode}
+          darkMode={darkMode}
         />
       )}
     </ThemeProvider>
