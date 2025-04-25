@@ -1,7 +1,7 @@
-// App.js
 import { useState, useMemo } from "react";
-import { ThemeProvider, createTheme } from "@mui/material/styles";
 import {
+  ThemeProvider,
+  createTheme,
   CssBaseline,
   IconButton,
   Container,
@@ -10,6 +10,10 @@ import {
   Button,
   TextField,
   Paper,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from "@mui/material";
 import { Brightness4, Brightness7 } from "@mui/icons-material";
 import { motion } from "framer-motion";
@@ -32,7 +36,7 @@ function AuthForm({ authMode, setAuthMode, onAuth }) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (email && !emailRegex.test(email)) setEmailError("Некорректный email.");
 
-    if (email && password && emailRegex.test(email)) onAuth();
+    if (email && password && emailRegex.test(email)) onAuth(email);
   };
 
   return (
@@ -80,6 +84,16 @@ function AuthForm({ authMode, setAuthMode, onAuth }) {
               {authMode === "login" ? "Войти" : "Зарегистрироваться"}
             </Button>
 
+            <Button
+              fullWidth
+              variant="outlined"
+              color="secondary"
+              sx={{ mt: 2 }}
+              onClick={() => onAuth("googleuser@example.com")}
+            >
+              Войти через Google
+            </Button>
+
             <Box textAlign="center" mt={2}>
               <Button
                 variant="text"
@@ -94,6 +108,68 @@ function AuthForm({ authMode, setAuthMode, onAuth }) {
         </Container>
       </motion.div>
     </Box>
+  );
+}
+
+function ProfilePage({ user, onClose, onOpenPassword }) {
+  return (
+    <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+      <Paper elevation={3} sx={{ p: 4, borderRadius: 4, minWidth: 320 }}>
+        <Typography variant="h5" gutterBottom>Профиль</Typography>
+        <Typography>Email: {user.email}</Typography>
+        <Typography>Пройдено уровней: {user.completedLevels}</Typography>
+        <Typography>Всего попыток: {user.attempts}</Typography>
+
+        <Button fullWidth sx={{ mt: 2 }} variant="outlined" onClick={onOpenPassword}>
+          Сменить пароль
+        </Button>
+
+        <Button fullWidth sx={{ mt: 2 }} onClick={onClose}>
+          Назад
+        </Button>
+      </Paper>
+    </Box>
+  );
+}
+
+function ChangePasswordDialog({ open, onClose }) {
+  const [oldPassword, setOldPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+
+  const handleChange = () => {
+    // TODO: добавить реальную проверку
+    console.log("Смена пароля:", { oldPassword, newPassword });
+    onClose();
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose}>
+      <DialogTitle>Смена пароля</DialogTitle>
+      <DialogContent>
+        <TextField
+          label="Старый пароль"
+          type="password"
+          fullWidth
+          margin="normal"
+          value={oldPassword}
+          onChange={(e) => setOldPassword(e.target.value)}
+        />
+        <TextField
+          label="Новый пароль"
+          type="password"
+          fullWidth
+          margin="normal"
+          value={newPassword}
+          onChange={(e) => setNewPassword(e.target.value)}
+        />
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Отмена</Button>
+        <Button onClick={handleChange} variant="contained" color="primary">
+          Сменить
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 }
 
@@ -127,17 +203,7 @@ function MainScreen({ level, setLevel, code, setCode, output, handleRunCode, dar
           direction="horizontal"
           style={{ display: 'flex', height: '100%' }}
         >
-          <Paper
-            elevation={3}
-            sx={{
-              p: 2,
-              borderRadius: 3,
-              height: '100%',
-              border: '1px solid #ccc',
-              backgroundColor: theme => theme.palette.background.paper,
-              overflowY: 'auto',
-            }}
-          >
+          <Paper elevation={3} sx={{ p: 2, borderRadius: 3, height: '100%', overflowY: 'auto' }}>
             <Typography variant="h6" gutterBottom>
               Задача уровня {level}
             </Typography>
@@ -156,30 +222,9 @@ function MainScreen({ level, setLevel, code, setCode, output, handleRunCode, dar
           >
             <Paper
               elevation={3}
-              sx={{
-                p: 2,
-                borderRadius: 3,
-                flex: 1,
-                display: 'flex',
-                flexDirection: 'column',
-                overflow: 'hidden',
-                bgcolor: theme => theme.palette.background.paper,
-              }}
+              sx={{ p: 2, borderRadius: 3, flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
             >
-              <Box
-                sx={{
-                  flex: 1,
-                  minHeight: 0,
-                  overflow: 'hidden',
-                  borderRadius: 2,
-                  border: '1px solid',
-                  borderColor: theme => theme.palette.divider,
-                  '& .monaco-editor, & .monaco-editor .margin, & .monaco-editor-background': {
-                    borderRadius: 2,
-                    overflow: 'hidden',
-                  },
-                }}
-              >
+              <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden', borderRadius: 2 }}>
                 <Editor
                   height="100%"
                   defaultLanguage="python"
@@ -190,10 +235,6 @@ function MainScreen({ level, setLevel, code, setCode, output, handleRunCode, dar
                     fontSize: 18,
                     minimap: { enabled: false },
                     lineNumbers: "on",
-                    scrollbar: {
-                      verticalScrollbarSize: 8,
-                      horizontalScrollbarSize: 8,
-                    },
                   }}
                 />
               </Box>
@@ -207,35 +248,20 @@ function MainScreen({ level, setLevel, code, setCode, output, handleRunCode, dar
               </Button>
             </Paper>
 
-            <Paper
-              elevation={3}
-              sx={{
-                p: 2,
-                borderRadius: 3,
-                border: '1px solid #ccc',
-                backgroundColor: theme => theme.palette.background.paper,
-                display: 'flex',
-                flexDirection: 'column',
-                height: '100%',
-                boxSizing: 'border-box',
-              }}
-            >
+            <Paper elevation={3} sx={{ p: 2, borderRadius: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
               <Typography variant="subtitle1" gutterBottom>
                 Результат выполнения:
               </Typography>
-              <Box sx={{ flex: 1, overflowY: 'auto' }}>
-                <TextField
-                  fullWidth
-                  multiline
-                  rows={2}
-                  value={output}
-                  InputProps={{
-                    readOnly: true,
-                    sx: { fontFamily: 'monospace' }
-                  }}
-                  placeholder="Здесь будет результат..."
-                />
-              </Box>
+              <TextField
+                fullWidth
+                multiline
+                rows={2}
+                value={output}
+                InputProps={{
+                  readOnly: true,
+                  sx: { fontFamily: 'monospace' },
+                }}
+              />
             </Paper>
           </Split>
         </Split>
@@ -248,10 +274,13 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authMode, setAuthMode] = useState("login");
   const [darkMode, setDarkMode] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
 
   const [level, setLevel] = useState(1);
   const [code, setCode] = useState("print('Hello, world!')");
   const [output, setOutput] = useState("");
+  const [user, setUser] = useState({ email: "", completedLevels: 0, attempts: 0 });
 
   const theme = useMemo(() => createTheme({
     palette: {
@@ -273,28 +302,50 @@ export default function App() {
         : "❌ Уязвимость не найдена. Попробуй ещё раз.",
     };
     setOutput(result.output);
+    setUser((prev) => ({
+      ...prev,
+      attempts: prev.attempts + 1,
+      completedLevels: result.success && level > prev.completedLevels ? level : prev.completedLevels,
+    }));
     if (result.success) setLevel(level + 1);
   };
 
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Box sx={{ position: "fixed", top: 8, right: 8, zIndex: 1200 }}>
+      <Box sx={{ position: "fixed", top: 8, right: 8, zIndex: 1200, display: "flex", gap: 1 }}>
         <IconButton onClick={toggleTheme} color="inherit">
           {darkMode ? <Brightness7 /> : <Brightness4 />}
         </IconButton>
+        {isAuthenticated && (
+          <Button variant="outlined" onClick={() => setShowProfile(true)}>Профиль</Button>
+        )}
       </Box>
 
-      {!isAuthenticated ? (
+      <ChangePasswordDialog
+        open={showPasswordDialog}
+        onClose={() => setShowPasswordDialog(false)}
+      />
+
+      {showProfile ? (
+        <ProfilePage
+          user={user}
+          onClose={() => setShowProfile(false)}
+          onOpenPassword={() => setShowPasswordDialog(true)}
+        />
+      ) : !isAuthenticated ? (
         <AuthForm
           authMode={authMode}
           setAuthMode={setAuthMode}
-          onAuth={() => setIsAuthenticated(true)}
+          onAuth={(email) => {
+            setUser({ email, completedLevels: 0, attempts: 0 });
+            setIsAuthenticated(true);
+          }}
         />
       ) : (
         <MainScreen
           level={level}
-          setLevel={setLevel}
+          setLevel={(lvl) => setLevel(lvl)}
           code={code}
           setCode={setCode}
           output={output}

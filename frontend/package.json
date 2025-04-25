@@ -15,7 +15,7 @@
     "@monaco-editor/react": "^4.7.0",
     "@mui/icons-material": "^7.0.2",
     "@mui/material": "^7.0.2",
-    "framer-motion": "^12.7.4",
+    "framer-motion": "^12.9.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-split": "^2.0.14"
