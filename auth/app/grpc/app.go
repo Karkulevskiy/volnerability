@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
-	"strconv"
 	authgrpc "volnerability-game/auth/api"
 	authservice "volnerability-game/auth/services"
 
@@ -14,7 +13,7 @@ import (
 type App struct {
 	log        *slog.Logger
 	gRPCServer *grpc.Server
-	port       int
+	address    string
 }
 
 func (app *App) MustRun() {
@@ -23,26 +22,25 @@ func (app *App) MustRun() {
 	}
 }
 
-func New(log *slog.Logger, authService authservice.Auth, port int) *App {
+func New(log *slog.Logger, authService authservice.Auth, address string) *App {
 	gRPCServer := grpc.NewServer()
 	authgrpc.Register(gRPCServer, &authService)
 
 	return &App{
 		log,
 		gRPCServer,
-		port,
+		address,
 	}
 }
 
 func (app *App) Run() error {
 	log := app.log.With(
 		slog.String("op", "grpcapp.Run"),
-		slog.Int("port", app.port),
+		slog.String("address", app.address),
 	)
 
 	log.Info("starting gRPC server")
-	grpcAddress := "127.0.0.1" + strconv.Itoa(app.port)
-	listener, err := net.Listen("tcp", grpcAddress)
+	listener, err := net.Listen("tcp", app.address)
 	if err != nil {
 		return fmt.Errorf("grpcapp.Run: %w", err)
 	}
@@ -56,7 +54,7 @@ func (app *App) Run() error {
 
 func (app *App) Stop() {
 	app.log.With(slog.String("op", "grpcapp.Stop")).
-		Info("stopping gRPC server", slog.Int("port", app.port))
+		Info("stopping gRPC server", slog.String("port", app.address))
 
 	app.gRPCServer.GracefulStop()
 }

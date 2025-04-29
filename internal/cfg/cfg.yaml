@@ -8,3 +8,8 @@ http_server:
 orchestrator_config:
   target_dir: "/home"
   image_name: "code-runner"
+
+grpc_config:
+  address: "127.0.0.1:8085"
+  timeout: 4s
+  token_ttl: 1h

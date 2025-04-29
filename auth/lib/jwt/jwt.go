@@ -17,7 +17,7 @@ func NewToken(user models.User, duration time.Duration, Secret string) (string, 
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
-	tokenString, err := token.SignedString([]byte(Secret)) //TODO: реализовать функцию секрета(мейби в кфг файле или в файле окружения)
+	tokenString, err := token.SignedString([]byte(Secret)) 
 	if err != nil {
 		return "", err
 	}

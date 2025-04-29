@@ -1,30 +1,25 @@
 package cfg
 
 import (
-	"encoding/json"
 	"log"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/ilyakaznacheev/cleanenv"
 )
 
-type Duration time.Duration
-
 type Config struct {
 	HttpServer         `yaml:"http_server"`
 	OrchestratorConfig `yaml:"orchestrator_config"`
+	GRPCConfig         `yaml:"grpc_config"`
 }
 
 type HttpServer struct {
-	StoragePath   string     `yaml:"storage_path" env-default:"./internal/db/storage.db"`
-	MigrationPath string     `yaml:"migration_path" env-default:"./internal/db/init.sql"`
-	Address       string     `yaml:"address" env-default:"0.0.0.0:8080"`
-	Timeout       Duration   `yaml:"timeout" env-default:"4s"`
-	IdleTimeout   Duration   `yaml:"idle_timeout" env-default:"60s"`
-	TokenTTL      Duration   `json:"token_ttl" env-default:"1h"`
-	GRPCCfg       GRPCConfig `json:"grpc"`
+	StoragePath   string        `yaml:"storage_path" env-default:"./internal/db/storage.db"`
+	MigrationPath string        `yaml:"migration_path" env-default:"./internal/db/init.sql"`
+	Address       string        `yaml:"address" env-default:"0.0.0.0:8080"`
+	Timeout       time.Duration `yaml:"timeout" env-default:"4s"`
+	IdleTimeout   time.Duration `yaml:"idle_timeout" env-default:"60s"`
 }
 
 type OrchestratorConfig struct {
@@ -34,12 +29,13 @@ type OrchestratorConfig struct {
 }
 
 type GRPCConfig struct {
-	Port    int      `json:"port" env-default:"8085"`
-	Timeout Duration `json:"timeout" env-default:"4s"`
+	Address  string        `yaml:"address" env-default:"127.0.0.1:8085"`
+	Timeout  time.Duration `yaml:"timeout" env-default:"4s"`
+	TokenTTL time.Duration `yaml:"token_ttl" env-default:"1h"`
 }
 
 func MustLoad() *Config {
-	const cfgPath = "./internal/cfg/cfg.json"
+	const cfgPath = "./internal/cfg/cfg.yaml"
 	if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
 		log.Fatalf("cfg not found in: %s", cfgPath)
 	}
@@ -51,29 +47,4 @@ func MustLoad() *Config {
 	}
 
 	return cfg
-}
-
-func (d *Duration) UnmarshalJSON(b []byte) error {
-	var s string
-	if err := json.Unmarshal(b, &s); err != nil {
-		return err
-	}
-	dur, err := time.ParseDuration(s)
-	if err != nil {
-		return err
-	}
-	*d = Duration(dur)
-	return nil
-}
-
-func (d *Duration) SetValue(s string) error {
-	// Удаляем кавычки, если они есть
-	s = strings.Trim(s, `"`)
-
-	v, err := time.ParseDuration(s)
-	if err != nil {
-		return err
-	}
-	*d = Duration(v)
-	return nil
 }

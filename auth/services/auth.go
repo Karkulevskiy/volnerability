@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"time"
 	"volnerability-game/auth/lib/jwt"
+	"volnerability-game/internal/db"
 	"volnerability-game/internal/domain/models"
 
 	"golang.org/x/crypto/bcrypt"
@@ -65,15 +66,14 @@ func (a *Auth) Login(
 
 	user, err := a.usrProvider.User(ctx, email)
 	if err != nil {
-		// TODO: UserNotFoundErr из пакета db
-		// if errors.Is(err, storage.ErrUserNotFound){
-		// 	a.log.Warn("user not found", sl.Err(err))
+		if errors.Is(err, db.ErrUserNotFound) {
+			a.log.Warn("user not found", err)
 
-		// 	return "", fmt.Errorf("%s: %w", op, ErrInvalidCredentials)
-		// }
-		// a.log.Warn("failed to get user", sl.Err(err))
+			return "", fmt.Errorf("%s: %w", op, ErrInvalidCredentials)
+		}
+		a.log.Warn("failed to get user", err)
 
-		// return "", fmt.Errorf("%s: %w", op, err)
+		return "", fmt.Errorf("%s: %w", op, err)
 	}
 
 	if err := bcrypt.CompareHashAndPassword(user.PassHash, []byte(password)); err != nil {
@@ -107,12 +107,11 @@ func (a *Auth) Register(ctx context.Context, email string, password string) (int
 
 	id, err := a.usrSaver.SaveUser(ctx, email, passHash)
 	if err != nil {
-		// TODO: UserNotFoundErr из пакета db
-		// if errors.Is(err, storage.ErrUserExists){
-		// 	a.log.Warn("user already exists", sl.Err(err))
+		if errors.Is(err, db.ErrUserExists) {
+			a.log.Warn("user already exists", err)
 
-		// 	return "", fmt.Errorf("%s: %w", op, ErrUserExists)
-		// }
+			return 0, fmt.Errorf("%s: %w", op, ErrUserExists)
+		}
 
 		log.Error("failed to save user", err)
 
