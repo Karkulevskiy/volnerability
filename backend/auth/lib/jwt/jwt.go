@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"volnerability-game/internal/domain/models"
+	models "volnerability-game/internal/domain"
 
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -18,7 +18,7 @@ func NewToken(user models.User, duration time.Duration, Secret string) (string, 
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
-	tokenString, err := token.SignedString([]byte(Secret)) 
+	tokenString, err := token.SignedString([]byte(Secret))
 	if err != nil {
 		return "", fmt.Errorf("jwt.NewToken: signing failed: %w", err)
 	}

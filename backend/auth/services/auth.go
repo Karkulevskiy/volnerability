@@ -8,7 +8,7 @@ import (
 	"time"
 	"volnerability-game/auth/lib/jwt"
 	"volnerability-game/internal/db"
-	"volnerability-game/internal/domain/models"
+	models "volnerability-game/internal/domain"
 
 	"golang.org/x/crypto/bcrypt"
 )

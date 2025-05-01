@@ -11,12 +11,13 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	"volnerability-game/internal/api/code"
 	"volnerability-game/internal/cfg"
 
-	//coderunner "volnerability-game/internal/codeRunner"
-	//containermgr "volnerability-game/internal/containerMgr"
 	grpcmgr "volnerability-game/auth/app/grpc"
 	authservice "volnerability-game/auth/services"
+	coderunner "volnerability-game/internal/codeRunner"
+	containermgr "volnerability-game/internal/containerMgr"
 	"volnerability-game/internal/db"
 	"volnerability-game/internal/lib/logger"
 	"volnerability-game/internal/lib/logger/utils"
@@ -54,25 +55,25 @@ func main() {
 		panic(err)
 	}
 
-	// orchestrator, err := containermgr.New(l, cfg.OrchestratorConfig)
-	// if err != nil {
-	// 	panic(err)
-	// }
+	orchestrator, err := containermgr.New(l, cfg.OrchestratorConfig)
+	if err != nil {
+		panic(err)
+	}
 
-	// defer func() {
-	// 	l.Info("stopping containers")
-	// 	if err := orchestrator.Stop(); err != nil {
-	// 		l.Error("failed stop containers", utils.Err(err))
-	// 	}
-	// }()
+	defer func() {
+		l.Info("stopping containers")
+		if err := orchestrator.Stop(); err != nil {
+			l.Error("failed stop containers", utils.Err(err))
+		}
+	}()
 
-	// l.Info("start containers")
-	// if err := orchestrator.RunContainers(); err != nil {
-	// 	panic(err)
-	// }
-	// l.Info("containers started")
+	l.Info("start containers")
+	if err := orchestrator.RunContainers(); err != nil {
+		panic(err)
+	}
+	l.Info("containers started")
 
-	//codeRunner := coderunner.New(orchestrator.Dir)
+	codeRunner := coderunner.New(l, orchestrator.Queue)
 
 	//запуск grpcApp
 	authSerivce := authservice.New(l, db, db, time.Duration(cfg.TokenTTL), os.Getenv("JWT_SECRET"))
@@ -86,9 +87,9 @@ func main() {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.URLFormat)
 
-	//codeRunner = coderunner.New(l, orchestrator.Queue)
+	codeRunner = coderunner.New(l, orchestrator.Queue)
 
-	// r.Post("/code", code.New(l, codeRunner))
+	r.Post("/code", code.New(l, codeRunner))
 
 	l.Info("starting server", slog.String("address", cfg.HttpServer.Address))
 

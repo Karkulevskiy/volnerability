@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"volnerability-game/internal/domain/models"
+	models "volnerability-game/internal/domain"
 
 	_ "github.com/golang-migrate/migrate/v4/database/sqlite3"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
