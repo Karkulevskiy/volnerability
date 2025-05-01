@@ -1,6 +1,7 @@
 package jwt
 
 import (
+	"fmt"
 	"time"
 
 	"volnerability-game/internal/domain/models"
@@ -19,7 +20,7 @@ func NewToken(user models.User, duration time.Duration, Secret string) (string, 
 
 	tokenString, err := token.SignedString([]byte(Secret)) 
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("jwt.NewToken: signing failed: %w", err)
 	}
 
 	return tokenString, nil
