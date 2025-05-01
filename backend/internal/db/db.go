@@ -1,12 +1,16 @@
 package db
 
 import (
+	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
+	models "volnerability-game/internal/domain"
 
 	_ "github.com/golang-migrate/migrate/v4/database/sqlite3"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/mattn/go-sqlite3"
 )
 
 var queries = []string{
@@ -45,52 +49,86 @@ type Storage struct {
 	db *sql.DB
 }
 
-func New(dbPath string) (*Storage, error) {
+func New(dbPath string) error {
 	const op = "storage.slqite.New"
 	if _, err := os.Stat(dbPath); !os.IsNotExist(err) {
 		fmt.Println("db file already exists")
-		return &Storage{}, nil
+		return nil
 	}
 
 	dbFile, err := os.Create(dbPath)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
+		return fmt.Errorf("%s: %w", op, err)
 	}
 	dbFile.Close()
 
 	fmt.Println("db file was created")
-	return &Storage{}, nil
+	return nil
 }
 
-func (s *Storage) Init(storagePath string) error {
+func Init(storagePath string) (*Storage, error) {
 	const op = "storage.db.init"
 	db, err := sql.Open("sqlite3", storagePath)
 	if err != nil {
-		return fmt.Errorf("%s: %w", op, err)
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
-	defer db.Close()
 
 	for _, q := range queries {
 		fmt.Println(q)
 		if _, err := db.Exec(q); err != nil {
-			return fmt.Errorf("%s: %w", op, err)
+			return nil, fmt.Errorf("%s: %w", op, err)
 		}
 	}
 
 	fmt.Println("tables were created")
-	return nil
+	return &Storage{db: db}, nil
 }
 
 func (s *Storage) Close() error {
 	return s.db.Close()
 }
 
-func (s *Storage) Login() error {
-	// TODO implement me
-	return nil
+func (s *Storage) SaveUser(ctx context.Context, email string, passHash []byte) (uid int64, err error) {
+	const op = "storage.sqlite.SaveUser"
+	query := "INSERT INTO users(email, pass_hash) VALUES(?, ?)"
+
+	stmt, err := s.db.Prepare(query)
+	if err != nil {
+		return -1, fmt.Errorf("%s: %s", op, err)
+	}
+
+	res, err := stmt.ExecContext(ctx, email, passHash)
+	if err != nil {
+		var sqlErr sqlite3.Error
+		if errors.As(err, &sqlErr) && sqlErr.ExtendedCode == sqlite3.ErrConstraintUnique {
+			return -1, fmt.Errorf("%s: %s", op, ErrUserExists)
+		}
+	}
+
+	uid, err = res.LastInsertId()
+	if err != nil {
+		return -1, fmt.Errorf("%s: %w", op, err)
+	}
+	return uid, nil
 }
 
-func (s *Storage) Register() error {
-	// TODO implement me
-	return nil
+func (s *Storage) User(ctx context.Context, email string) (models.User, error) {
+	const op = "storage.sqlite.User"
+	query := "SELECT * FROM users WHERE email = ?"
+
+	stmt, err := s.db.Prepare(query)
+	if err != nil {
+		return models.User{}, fmt.Errorf("%s: %s", op, err)
+	}
+
+	row := stmt.QueryRowContext(ctx, email)
+	var user models.User
+	err = row.Scan(&user.ID, &user.Email, &user.PassHash)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return models.User{}, fmt.Errorf("%s: %s", op, ErrUserNotFound)
+		}
+	}
+
+	return user, nil
 }

@@ -11,9 +11,11 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
-	"volnerability-game/internal/api/auth"
 	"volnerability-game/internal/api/code"
 	"volnerability-game/internal/cfg"
+
+	grpcmgr "volnerability-game/auth/app/grpc"
+	authservice "volnerability-game/auth/services"
 	coderunner "volnerability-game/internal/codeRunner"
 	containermgr "volnerability-game/internal/containerMgr"
 	"volnerability-game/internal/db"
@@ -22,10 +24,15 @@ import (
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
+	"github.com/joho/godotenv"
 	_ "github.com/mattn/go-sqlite3" // SQLite драйвер
 )
 
 func main() {
+	if err := godotenv.Load(); err != nil {
+		log.Fatal(err)
+	}
+
 	logFile, err := os.OpenFile("game.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		log.Fatal(err)
@@ -38,12 +45,13 @@ func main() {
 		io.MultiWriter(logFile, os.Stdout),
 		&slog.HandlerOptions{AddSource: true}))
 
-	db, err := db.New(cfg.StoragePath)
+	err = db.New(cfg.StoragePath)
 	if err != nil {
 		panic(err)
 	}
 
-	if err := db.Init(cfg.StoragePath); err != nil {
+	db, err := db.Init(cfg.StoragePath)
+	if err != nil {
 		panic(err)
 	}
 
@@ -65,6 +73,13 @@ func main() {
 	}
 	l.Info("containers started")
 
+	codeRunner := coderunner.New(l, orchestrator.Queue)
+
+	//запуск grpcApp
+	authSerivce := authservice.New(l, db, db, time.Duration(cfg.TokenTTL), os.Getenv("JWT_SECRET"))
+	grpcSrv := grpcmgr.New(l, *authSerivce, cfg.GRPCConfig.Address)
+	go grpcSrv.MustRun()
+
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Logger)
@@ -72,23 +87,21 @@ func main() {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.URLFormat)
 
-	codeRunner := coderunner.New(l, orchestrator.Queue)
+	codeRunner = coderunner.New(l, orchestrator.Queue)
 
-	r.Post("/login", auth.New(l, db)) // TODO логин
-	r.Post("/register", nil)          // TODO регистрация
 	r.Post("/code", code.New(l, codeRunner))
 
-	l.Info("starting server", slog.String("address", cfg.Address))
+	l.Info("starting server", slog.String("address", cfg.HttpServer.Address))
 
 	done := make(chan os.Signal, 1)
 	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
 	srv := &http.Server{
-		Addr:         cfg.Address,
+		Addr:         cfg.HttpServer.Address,
 		Handler:      r,
-		ReadTimeout:  cfg.Timeout,
-		WriteTimeout: cfg.Timeout,
-		IdleTimeout:  cfg.IdleTimeout,
+		ReadTimeout:  cfg.HttpServer.Timeout,
+		WriteTimeout: cfg.HttpServer.Timeout,
+		IdleTimeout:  cfg.HttpServer.IdleTimeout,
 	}
 
 	go func() {
@@ -112,5 +125,8 @@ func main() {
 		return
 	}
 
-	//TODO close db
+	if err := db.Close(); err != nil {
+		l.Error("failed to close db: ", utils.Err(err))
+		return
+	}
 }

@@ -11,6 +11,7 @@ import (
 type Config struct {
 	HttpServer         `yaml:"http_server"`
 	OrchestratorConfig `yaml:"orchestrator_config"`
+	GRPCConfig         `yaml:"grpc_config"`
 }
 
 type HttpServer struct {
@@ -25,6 +26,12 @@ type OrchestratorConfig struct {
 	TempDir   string `yaml:"temp_dir"`
 	TargetDir string `yaml:"target_dir" env-default:"/home"`
 	ImageName string `yaml:"image_name" env-default:"code-runner"`
+}
+
+type GRPCConfig struct {
+	Address  string        `yaml:"address" env-default:"127.0.0.1:8085"`
+	Timeout  time.Duration `yaml:"timeout" env-default:"4s"`
+	TokenTTL time.Duration `yaml:"token_ttl" env-default:"1h"`
 }
 
 func MustLoad() *Config {
