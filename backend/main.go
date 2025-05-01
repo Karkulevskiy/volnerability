@@ -30,7 +30,10 @@ import (
 
 func main() {
 	if err := godotenv.Load(); err != nil {
-		log.Fatal(err)
+		if !errors.Is(err, os.ErrNotExist) {
+			log.Fatal(err)
+		}
+		log.Println(".env not exists, auth not working")
 	}
 
 	logFile, err := os.OpenFile("game.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
@@ -73,9 +76,7 @@ func main() {
 	}
 	l.Info("containers started")
 
-	codeRunner := coderunner.New(l, orchestrator.Queue)
-
-	//запуск grpcApp
+	// запуск grpcApp
 	authSerivce := authservice.New(l, db, db, time.Duration(cfg.TokenTTL), os.Getenv("JWT_SECRET"))
 	grpcSrv := grpcmgr.New(l, *authSerivce, cfg.GRPCConfig.Address)
 	go grpcSrv.MustRun()
@@ -87,7 +88,7 @@ func main() {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.URLFormat)
 
-	codeRunner = coderunner.New(l, orchestrator.Queue)
+	codeRunner := coderunner.New(l, orchestrator.Queue)
 
 	r.Post("/code", code.New(l, codeRunner))
 

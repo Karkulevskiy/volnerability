@@ -2,3 +2,4 @@ game.log
 .vscode
 .github
 /internal/db/storage.db
+.env
