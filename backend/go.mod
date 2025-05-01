@@ -61,6 +61,7 @@ require (
 	github.com/ajg/form v1.5.1 // indirect
 	github.com/docker/docker v27.5.1+incompatible
 	github.com/golang-migrate/migrate/v4 v4.18.2
+	github.com/stretchr/testify v1.10.0
 	golang.org/x/sys v0.29.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

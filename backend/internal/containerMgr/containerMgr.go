@@ -20,6 +20,7 @@ import (
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/archive"
 )
 
 const (
@@ -182,7 +183,12 @@ func (o *Orchestrator) buildImage(ctx context.Context) error {
 		return nil
 	}
 
-	tar, err := createTar()
+	wd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+
+	tar, err := archive.TarWithOptions(wd, &archive.TarOptions{IncludeFiles: []string{"Dockerfile"}})
 	if err != nil {
 		o.l.Error("failed to crate tar file", utils.Err(err))
 		return err
