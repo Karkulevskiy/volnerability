@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 	"volnerability-game/internal/api/code"
+	"volnerability-game/internal/api/sqlLevel"
 	"volnerability-game/internal/cfg"
 
 	grpcmgr "volnerability-game/auth/app/grpc"
@@ -91,7 +92,7 @@ func main() {
 	codeRunner := coderunner.New(l, orchestrator.Queue)
 
 	r.Post("/code", code.New(l, codeRunner))
-
+	r.Post("sqlLevel", sqllevel.New(l, db))
 	l.Info("starting server", slog.String("address", cfg.HttpServer.Address))
 
 	done := make(chan os.Signal, 1)

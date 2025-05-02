@@ -1,5 +1,6 @@
 package domain
 
+// Concrete task to run
 type Task struct {
 	Code  string
 	Lang  string

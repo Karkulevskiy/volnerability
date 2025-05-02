@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"volnerability-game/internal/domain"
 	models "volnerability-game/internal/domain"
 
 	_ "github.com/golang-migrate/migrate/v4/database/sqlite3"
@@ -31,8 +32,16 @@ var queries = []string{
 (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name VARCHAR(100) NOT NULL,
-    description TEXT
+    description TEXT,
+	expected_input TEXT
 );`,
+	`CREATE TABLE IF NOT EXISTS hints
+(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    level_id INTEGER NOT NULL REFERENCES levels(id) ON DELETE CASCADE,
+    hint_text TEXT NOT NULL,
+);
+	`,
 	`CREATE TABLE IF NOT EXISTS user_levels 
 (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -47,6 +56,15 @@ var queries = []string{
 
 type Storage struct {
 	db *sql.DB
+}
+
+func (s *Storage) IsQueryValid(query string) (bool, error) {
+	stmt, err := s.db.Prepare(query)
+	if err != nil {
+		return false, err
+	}
+	defer stmt.Close()
+	return true, nil
 }
 
 func New(dbPath string) error {
@@ -131,4 +149,44 @@ func (s *Storage) User(ctx context.Context, email string) (models.User, error) {
 	}
 
 	return user, nil
+}
+
+// Get concrete level by id
+func (s *Storage) Level(ctx context.Context, id int) (models.Level, error) {
+	const op = "storage.sqlite.Level"
+	query := `
+	SELECT 
+		l.id, l.name, l.description, l.expected_input
+		h.id, h.level_id, h.hint_text
+	FROM levels l
+	LEFT JOIN hints h on l.id = h.level_id
+	WHERE l.id = ?
+	`
+
+	rows, err := s.db.Query(query)
+	if err != nil {
+		return models.Level{}, fmt.Errorf("failed to get level: %s %w", op, err)
+	}
+	defer rows.Close()
+
+	level := domain.Level{}
+
+	for rows.Next() {
+		var (
+			lvlId                            int
+			lvlName                          string
+			lvlDesc, hintText, expectedInput sql.NullString
+		)
+
+		if err := rows.Scan(&lvlId, &lvlName, &lvlDesc, &hintText, &expectedInput); err != nil {
+			return domain.Level{}, fmt.Errorf("scan error: %s %w", op, err)
+		}
+
+		level.Id = lvlId
+		level.Name = lvlName
+		level.Description = lvlDesc.String
+		level.Hints = []string{hintText.String}
+		level.ExpectedInput = expectedInput.String
+	}
+	return level, nil
 }
