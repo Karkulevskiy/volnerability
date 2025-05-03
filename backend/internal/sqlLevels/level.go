@@ -2,7 +2,6 @@ package sqllevels
 
 import (
 	"context"
-	"fmt"
 	"volnerability-game/internal/db"
 )
 
@@ -11,19 +10,14 @@ func Run(ctx context.Context, storage *db.Storage, levelId int, input string) (s
 	if err != nil {
 		return "", err
 	}
-	isValid, err := storage.IsQueryValid(input)
-	if err != nil {
+	if err := storage.IsQueryValid(input); err != nil {
 		if db.IsSyntaxError(err) {
-			return "", fmt.Errorf("")
+			return "invalid SQL syntax", nil
 		}
-		return "", fmt.Errorf("")
-	}
-	// TODO Тут прям напрашивается механгизм маппинга ошибок, чтобы по кайфу было
-	if !isValid {
-		return "", nil
+		return "internal err", err
 	}
 	if level.ExpectedInput != input {
-		return "", nil
+		return "not expected sql injection", nil
 	}
-	return "", nil
+	return "accepted", nil
 }

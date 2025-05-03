@@ -13,3 +13,9 @@ type Level struct {
 	Hints         []string `json:"hints"`
 	ExpectedInput string   `json:"expectedInput"`
 }
+
+type Hint struct {
+	Id      int    `json:"id"`
+	LevelId int    `json:"levelId"`
+	Text    string `json:"text"`
+}

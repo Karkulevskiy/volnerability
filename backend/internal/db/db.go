@@ -39,7 +39,7 @@ var queries = []string{
 (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     level_id INTEGER NOT NULL REFERENCES levels(id) ON DELETE CASCADE,
-    hint_text TEXT NOT NULL,
+    hint_text TEXT NOT NULL
 );
 	`,
 	`CREATE TABLE IF NOT EXISTS user_levels 
@@ -58,28 +58,52 @@ type Storage struct {
 	db *sql.DB
 }
 
-func (s *Storage) IsQueryValid(query string) (bool, error) {
+func (s *Storage) IsQueryValid(query string) error {
 	stmt, err := s.db.Prepare(query)
 	if err != nil {
-		return false, err
+		return err
 	}
 	defer stmt.Close()
-	return true, nil
+	return nil
 }
 
-func New(dbPath string) error {
+func New(storagePath string) (*Storage, error) {
 	const op = "storage.slqite.New"
-	if _, err := os.Stat(dbPath); !os.IsNotExist(err) {
-		fmt.Println("db file already exists")
-		return nil
+
+	_, err := os.Stat(storagePath)
+	if err == nil {
+		return OpenDb(storagePath)
 	}
 
-	dbFile, err := os.Create(dbPath)
+	if !os.IsNotExist(err) {
+		return nil, err
+	}
+
+	if err := CreateFileDb(storagePath); err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return Init(storagePath)
+}
+
+func OpenDb(storagePath string) (*Storage, error) {
+	fmt.Println("db file already initialized")
+	const op = "storage.db.init"
+	db, err := sql.Open("sqlite3", storagePath)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+	return &Storage{db: db}, nil
+}
+
+func CreateFileDb(storagePath string) error {
+	const op = "storage.slqite.New"
+	fmt.Println("creating db file")
+	dbFile, err := os.Create(storagePath)
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}
 	dbFile.Close()
-
 	fmt.Println("db file was created")
 	return nil
 }
@@ -156,14 +180,13 @@ func (s *Storage) Level(ctx context.Context, id int) (models.Level, error) {
 	const op = "storage.sqlite.Level"
 	query := `
 	SELECT 
-		l.id, l.name, l.description, l.expected_input
-		h.id, h.level_id, h.hint_text
+		l.id, l.name, l.description, l.expected_input, h.hint_text
 	FROM levels l
 	LEFT JOIN hints h on l.id = h.level_id
 	WHERE l.id = ?
 	`
 
-	rows, err := s.db.Query(query)
+	rows, err := s.db.Query(query, id)
 	if err != nil {
 		return models.Level{}, fmt.Errorf("failed to get level: %s %w", op, err)
 	}
@@ -178,7 +201,7 @@ func (s *Storage) Level(ctx context.Context, id int) (models.Level, error) {
 			lvlDesc, hintText, expectedInput sql.NullString
 		)
 
-		if err := rows.Scan(&lvlId, &lvlName, &lvlDesc, &hintText, &expectedInput); err != nil {
+		if err := rows.Scan(&lvlId, &lvlName, &lvlDesc, &expectedInput, &hintText); err != nil {
 			return domain.Level{}, fmt.Errorf("scan error: %s %w", op, err)
 		}
 
@@ -189,4 +212,38 @@ func (s *Storage) Level(ctx context.Context, id int) (models.Level, error) {
 		level.ExpectedInput = expectedInput.String
 	}
 	return level, nil
+}
+
+func (s *Storage) Hint(ctx context.Context, id int) (models.Hint, error) {
+	const op = "storage.sqlite.Hint"
+	query := `
+	SELECT 
+		h.id, h.level_id, h.hint_text
+	FROM hints h
+	LEFT JOIN levels l on l.id = h.level_id
+	WHERE h.id = ?
+	`
+
+	rows, err := s.db.Query(query, id)
+	if err != nil {
+		return models.Hint{}, fmt.Errorf("failed to get hint: %s %w", op, err)
+	}
+
+	defer rows.Close()
+
+	hint := domain.Hint{}
+	for rows.Next() {
+		var (
+			hintId, levelId int
+			text            sql.NullString
+		)
+		if err := rows.Scan(&hintId, &levelId, &text); err != nil {
+			return domain.Hint{}, fmt.Errorf("scan error: %s %w", op, err)
+		}
+		hint.Id = hintId
+		hint.LevelId = levelId
+		hint.Text = text.String
+	}
+
+	return hint, nil
 }

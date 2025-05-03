@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"volnerability-game/internal/common"
 	"volnerability-game/internal/db"
+	"volnerability-game/internal/lib/api"
 	"volnerability-game/internal/lib/logger/utils"
 	sqllevels "volnerability-game/internal/sqlLevels"
 
@@ -19,8 +20,8 @@ var (
 )
 
 type Request struct {
-	Level int    `json:"level"`
-	Input string `json:"input"`
+	LevelId int    `json:"levelId"`
+	Input   string `json:"input"`
 	// Other fields
 }
 
@@ -37,7 +38,7 @@ func New(l *slog.Logger, db *db.Storage) http.HandlerFunc {
 		req := Request{}
 		if err := render.DecodeJSON(r.Body, &req); err != nil {
 			l.Error("failed to parse request body", utils.Err(err))
-			render.JSON(w, r, err)
+			render.JSON(w, r, api.New(api.WithCode(http.StatusExpectationFailed)))
 			return
 		}
 
@@ -45,18 +46,19 @@ func New(l *slog.Logger, db *db.Storage) http.HandlerFunc {
 
 		if err := validate(req); err != nil {
 			l.Error("invalid request", utils.Err(err))
-			render.JSON(w, r, err)
+			render.JSON(w, r, api.New(api.WithCode(http.StatusExpectationFailed)))
 			return
 		}
 
-		resp, err := sqllevels.Run(ctx, db, req.Level, req.Input)
+		// Добавить sql для подсказок
+		// Добавить ui на подсказки
+		_, err := sqllevels.Run(ctx, db, req.LevelId, req.Input)
 		if err != nil {
 			l.Error("failed to run sql level", utils.Err(err))
-			render.JSON(w, r, err)
+			render.JSON(w, r, api.InternalError())
 			return
 		}
-
-		render.JSON(w, r, resp)
+		render.JSON(w, r, api.OK())
 	}
 }
 
@@ -71,7 +73,7 @@ func New(l *slog.Logger, db *db.Storage) http.HandlerFunc {
 // 8) Наверное стоит делать по одному запросу в бд по всех инфе для конкретной группы
 
 func validate(req Request) error {
-	if req.Level <= 0 || req.Level > common.MaxLevel {
+	if req.LevelId <= 0 || req.LevelId > common.MaxLevel {
 		return ErrInvalidLevelId
 	}
 	if len(req.Input) == 0 {

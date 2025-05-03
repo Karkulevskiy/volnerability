@@ -11,12 +11,12 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
-	"volnerability-game/internal/api/code"
-	"volnerability-game/internal/api/sqlLevel"
-	"volnerability-game/internal/cfg"
-
 	grpcmgr "volnerability-game/auth/app/grpc"
 	authservice "volnerability-game/auth/services"
+	"volnerability-game/internal/api/code"
+	"volnerability-game/internal/api/hint"
+	sqllevel "volnerability-game/internal/api/sqlLevel"
+	"volnerability-game/internal/cfg"
 	coderunner "volnerability-game/internal/codeRunner"
 	containermgr "volnerability-game/internal/containerMgr"
 	"volnerability-game/internal/db"
@@ -26,7 +26,6 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/joho/godotenv"
-	_ "github.com/mattn/go-sqlite3" // SQLite драйвер
 )
 
 func main() {
@@ -49,12 +48,7 @@ func main() {
 		io.MultiWriter(logFile, os.Stdout),
 		&slog.HandlerOptions{AddSource: true}))
 
-	err = db.New(cfg.StoragePath)
-	if err != nil {
-		panic(err)
-	}
-
-	db, err := db.Init(cfg.StoragePath)
+	db, err := db.New(cfg.StoragePath)
 	if err != nil {
 		panic(err)
 	}
@@ -92,7 +86,8 @@ func main() {
 	codeRunner := coderunner.New(l, orchestrator.Queue)
 
 	r.Post("/code", code.New(l, codeRunner))
-	r.Post("sqlLevel", sqllevel.New(l, db))
+	r.Post("/sqlLevel", sqllevel.New(l, db))
+	r.Get("/hint", hint.New(l, db))
 	l.Info("starting server", slog.String("address", cfg.HttpServer.Address))
 
 	done := make(chan os.Signal, 1)
