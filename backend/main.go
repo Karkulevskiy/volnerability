@@ -22,6 +22,7 @@ import (
 	"volnerability-game/internal/db"
 	"volnerability-game/internal/lib/logger"
 	"volnerability-game/internal/lib/logger/utils"
+	cstmMiddleware "volnerability-game/internal/middleware"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
@@ -71,10 +72,12 @@ func main() {
 	}
 	l.Info("containers started")
 
-	// запуск grpcApp
-	authSerivce := authservice.New(l, db, db, time.Duration(cfg.TokenTTL), os.Getenv("JWT_SECRET"))
+	appSecret := os.Getenv("JWT_SECRET")
+
+	authSerivce := authservice.New(l, db, db, time.Duration(cfg.TokenTTL), appSecret)
 	grpcSrv := grpcmgr.New(l, *authSerivce, cfg.GRPCConfig.Address)
 	go grpcSrv.MustRun()
+	l.Info("auth server started", slog.String("address", cfg.GRPCConfig.Address))
 
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
@@ -82,12 +85,14 @@ func main() {
 	r.Use(logger.New(l))
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.URLFormat)
+	r.Use(cstmMiddleware.New(l, appSecret))
 
 	codeRunner := coderunner.New(l, orchestrator.Queue)
 
 	r.Post("/code", code.New(l, codeRunner))
 	r.Post("/sqlLevel", sqllevel.New(l, db))
 	r.Get("/hint", hint.New(l, db))
+
 	l.Info("starting server", slog.String("address", cfg.HttpServer.Address))
 
 	done := make(chan os.Signal, 1)
