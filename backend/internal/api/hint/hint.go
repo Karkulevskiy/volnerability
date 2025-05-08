@@ -14,10 +14,6 @@ import (
 	"github.com/go-chi/render"
 )
 
-type Request struct {
-	HintId int `json:"hintId"`
-}
-
 func New(l *slog.Logger, db *db.Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		const op = "rest.hint.New"

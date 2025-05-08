@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"volnerability-game/internal/common"
 	"volnerability-game/internal/lib/logger/utils"
 )
 
@@ -28,7 +29,7 @@ func New(log *slog.Logger, appSecret string) func(next http.Handler) http.Handle
 			}
 
 			// hmac alg. expects type of []byte, not string. NOT fix this!
-			claims, err := utils.ParseToken(tokenStr, []byte(appSecret))
+			claims, err := common.ParseToken(tokenStr, []byte(appSecret))
 			if err != nil {
 				log.Warn("failed to parse token", utils.Err(err))
 

@@ -15,3 +15,11 @@ func ToSetBy[T comparable, E any](slice []E, f func(E) T) map[T]struct{} {
 	}
 	return m
 }
+
+func Map[T1, T2 any](mapFn func(T1) T2, objs ...T1) []T2 {
+	mapped := make([]T2, 0, len(objs))
+	for _, obj := range objs {
+		mapped = append(mapped, mapFn(obj))
+	}
+	return mapped
+}

@@ -1,9 +1,11 @@
 package domain
 
 type User struct {
-	ID       int64
-	Email    string
-	PassHash []byte
+	ID            int64
+	Email         string
+	PassHash      []byte
+	TotalAttempts int
+	PassLevels    int
 }
 
 type Level struct {

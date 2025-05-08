@@ -16,6 +16,7 @@ import (
 	"volnerability-game/internal/api/code"
 	"volnerability-game/internal/api/hint"
 	sqllevel "volnerability-game/internal/api/sqlLevel"
+	"volnerability-game/internal/api/user"
 	"volnerability-game/internal/cfg"
 	coderunner "volnerability-game/internal/codeRunner"
 	containermgr "volnerability-game/internal/containerMgr"
@@ -92,6 +93,7 @@ func main() {
 	r.Post("/code", code.New(l, codeRunner))
 	r.Post("/sqlLevel", sqllevel.New(l, db))
 	r.Get("/hint", hint.New(l, db))
+	r.Get("/user", user.New(l, db))
 
 	l.Info("starting server", slog.String("address", cfg.HttpServer.Address))
 

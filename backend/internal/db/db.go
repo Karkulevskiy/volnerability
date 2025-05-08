@@ -6,6 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
+	"volnerability-game/internal/common"
 	"volnerability-game/internal/domain"
 	models "volnerability-game/internal/domain"
 
@@ -19,7 +22,9 @@ var queries = []string{
 (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     email TEXT NOT NULL UNIQUE,
-    pass_hash BLOB NOT NULL
+    pass_hash BLOB NOT NULL,
+	total_attempts INTEGER DEFAULT 0,
+	pass_levels INTEGER DEFAULT 0
 );`,
 	`CREATE INDEX IF NOT EXISTS idx_email ON users (email);`,
 	`CREATE TABLE IF NOT EXISTS apps
@@ -165,34 +170,104 @@ func (s *Storage) User(ctx context.Context, email string) (models.User, error) {
 
 	row := stmt.QueryRowContext(ctx, email)
 	var user models.User
-	err = row.Scan(&user.ID, &user.Email, &user.PassHash)
-	if err != nil {
+	if err = row.Scan(&user.ID, &user.Email, &user.PassHash, &user.TotalAttempts, &user.PassLevels); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return models.User{}, fmt.Errorf("%s: %s", op, ErrUserNotFound)
 		}
+		return models.User{}, err
 	}
-
 	return user, nil
 }
 
-// Get concrete level by id
-func (s *Storage) Level(ctx context.Context, id int) (models.Level, error) {
-	const op = "storage.sqlite.Level"
+func (s *Storage) UpdateUser(ctx context.Context, user models.User) error {
+	needUpdate := make([]string, 0, 3)
+	if len(user.PassHash) > 0 {
+		needUpdate = append(needUpdate, "pass_hash = "+string(user.PassHash))
+	}
+	if user.TotalAttempts > 0 {
+		needUpdate = append(needUpdate, "total_attempts = "+strconv.Itoa(user.TotalAttempts))
+	}
+	if user.PassLevels > 0 {
+		needUpdate = append(needUpdate, "pass_levels = "+strconv.Itoa(user.PassLevels))
+	}
+
+	query := fmt.Sprintf(`
+	UPDATE users
+	SET %s
+	WHERE email = ?
+	`, strings.Join(needUpdate, ", "))
+
+	stmt, err := s.db.Prepare(query)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	res, err := stmt.Exec()
+	if err != nil {
+		return err
+	}
+
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if affected == 0 {
+		return ErrUserNotFound
+	}
+
+	return nil
+}
+
+func (s *Storage) UserLevels(ctx context.Context, email string) ([]models.Level, error) {
+	const op = "storage.sqlite.UserLevels"
+	query := `
+	SELECT l.level_id, l.user_id l.is_completed, l.last_input, l.attempt_response, l.attempts
+	FROM user_levels l
+	LEFT JOIN users u on u.id = l.user_id
+	WHERE u.email = ?
+	`
+
+	rows, err := s.db.Query(query, email)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user levels: %s %w", op, err)
+	}
+	defer rows.Close()
+	userLevels := []domain.Level{}
+	_ = userLevels
+	return nil, nil
+}
+
+func (s *Storage) UpdateUserLevel(ctx context.Context, email string, levelId int) error {
+	return nil
+}
+
+func (s *Storage) UserStartLevel(ctx context.Context, email string, levelId int) error {
+	return nil
+}
+
+func (s *Storage) Levels(ctx context.Context, ids ...int) ([]models.Level, error) {
+	const op = "storage.sqlite.Levels"
 	query := `
 	SELECT 
 		l.id, l.name, l.description, l.expected_input, h.hint_text
 	FROM levels l
 	LEFT JOIN hints h on l.id = h.level_id
-	WHERE l.id = ?
+	WHERE l.id in (%s)
 	`
 
-	rows, err := s.db.Query(query, id)
+	// map to id1,id2,id3 for db selection
+	strIds := common.Map(strconv.Itoa, ids...)
+	selectBy := strings.Join(strIds, ",")
+
+	rows, err := s.db.Query(query, selectBy)
 	if err != nil {
-		return models.Level{}, fmt.Errorf("failed to get level: %s %w", op, err)
+		return nil, fmt.Errorf("failed to get levels: %s %w", op, err)
 	}
 	defer rows.Close()
 
-	level := domain.Level{}
+	levels := make([]domain.Level, 0, len(ids))
 
 	for rows.Next() {
 		var (
@@ -202,16 +277,36 @@ func (s *Storage) Level(ctx context.Context, id int) (models.Level, error) {
 		)
 
 		if err := rows.Scan(&lvlId, &lvlName, &lvlDesc, &expectedInput, &hintText); err != nil {
-			return domain.Level{}, fmt.Errorf("scan error: %s %w", op, err)
+			return nil, fmt.Errorf("scan error: %s %w", op, err)
 		}
 
-		level.Id = lvlId
-		level.Name = lvlName
-		level.Description = lvlDesc.String
-		level.Hints = []string{hintText.String}
-		level.ExpectedInput = expectedInput.String
+		level := domain.Level{
+			Id:            lvlId,
+			Name:          lvlName,
+			Description:   lvlDesc.String,
+			Hints:         []string{hintText.String},
+			ExpectedInput: expectedInput.String,
+		}
+
+		levels = append(levels, level)
 	}
-	return level, nil
+	return levels, nil
+}
+
+// Get concrete level by id
+func (s *Storage) Level(ctx context.Context, id int) (models.Level, error) {
+	const op = "storage.sqlite.Level"
+	levels, err := s.Levels(ctx, id)
+	if err != nil {
+		return models.Level{}, fmt.Errorf("failed to get level by id: %d, due to error: %w", id, err)
+	}
+	if len(levels) > 1 {
+		return models.Level{}, fmt.Errorf("failed to get onl one level by id: %d, selected several: %v", id, levels)
+	}
+	if len(levels) == 0 {
+		return models.Level{}, nil
+	}
+	return levels[0], nil
 }
 
 func (s *Storage) Hint(ctx context.Context, id int) (models.Hint, error) {
