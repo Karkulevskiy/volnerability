@@ -29,13 +29,13 @@ func TestWdPathForCodes(t *testing.T) {
 	tests := []struct {
 		expectedWd string
 	}{
-		{"/codes"},
+		{expectedWd: "/codes"},
 	}
 	for _, test := range tests {
 		currWd, err := wdPathForCodes()
 		assert.NoError(t, err)
 		lastFolderInd := strings.LastIndex(currWd, "/")
-		assert.Equal(t, currWd[lastFolderInd:], test.expectedWd)
+		assert.Equal(t, test.expectedWd, currWd[lastFolderInd:])
 	}
 }
 

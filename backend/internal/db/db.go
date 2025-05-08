@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"volnerability-game/internal/domain"
 	models "volnerability-game/internal/domain"
 
 	_ "github.com/golang-migrate/migrate/v4/database/sqlite3"
@@ -31,8 +32,16 @@ var queries = []string{
 (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name VARCHAR(100) NOT NULL,
-    description TEXT
+    description TEXT,
+	expected_input TEXT
 );`,
+	`CREATE TABLE IF NOT EXISTS hints
+(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    level_id INTEGER NOT NULL REFERENCES levels(id) ON DELETE CASCADE,
+    hint_text TEXT NOT NULL
+);
+	`,
 	`CREATE TABLE IF NOT EXISTS user_levels 
 (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -49,19 +58,52 @@ type Storage struct {
 	db *sql.DB
 }
 
-func New(dbPath string) error {
+func (s *Storage) IsQueryValid(query string) error {
+	stmt, err := s.db.Prepare(query)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+	return nil
+}
+
+func New(storagePath string) (*Storage, error) {
 	const op = "storage.slqite.New"
-	if _, err := os.Stat(dbPath); !os.IsNotExist(err) {
-		fmt.Println("db file already exists")
-		return nil
+
+	_, err := os.Stat(storagePath)
+	if err == nil {
+		return OpenDb(storagePath)
 	}
 
-	dbFile, err := os.Create(dbPath)
+	if !os.IsNotExist(err) {
+		return nil, err
+	}
+
+	if err := CreateFileDb(storagePath); err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return Init(storagePath)
+}
+
+func OpenDb(storagePath string) (*Storage, error) {
+	fmt.Println("db file already initialized")
+	const op = "storage.db.init"
+	db, err := sql.Open("sqlite3", storagePath)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+	return &Storage{db: db}, nil
+}
+
+func CreateFileDb(storagePath string) error {
+	const op = "storage.slqite.New"
+	fmt.Println("creating db file")
+	dbFile, err := os.Create(storagePath)
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}
 	dbFile.Close()
-
 	fmt.Println("db file was created")
 	return nil
 }
@@ -131,4 +173,77 @@ func (s *Storage) User(ctx context.Context, email string) (models.User, error) {
 	}
 
 	return user, nil
+}
+
+// Get concrete level by id
+func (s *Storage) Level(ctx context.Context, id int) (models.Level, error) {
+	const op = "storage.sqlite.Level"
+	query := `
+	SELECT 
+		l.id, l.name, l.description, l.expected_input, h.hint_text
+	FROM levels l
+	LEFT JOIN hints h on l.id = h.level_id
+	WHERE l.id = ?
+	`
+
+	rows, err := s.db.Query(query, id)
+	if err != nil {
+		return models.Level{}, fmt.Errorf("failed to get level: %s %w", op, err)
+	}
+	defer rows.Close()
+
+	level := domain.Level{}
+
+	for rows.Next() {
+		var (
+			lvlId                            int
+			lvlName                          string
+			lvlDesc, hintText, expectedInput sql.NullString
+		)
+
+		if err := rows.Scan(&lvlId, &lvlName, &lvlDesc, &expectedInput, &hintText); err != nil {
+			return domain.Level{}, fmt.Errorf("scan error: %s %w", op, err)
+		}
+
+		level.Id = lvlId
+		level.Name = lvlName
+		level.Description = lvlDesc.String
+		level.Hints = []string{hintText.String}
+		level.ExpectedInput = expectedInput.String
+	}
+	return level, nil
+}
+
+func (s *Storage) Hint(ctx context.Context, id int) (models.Hint, error) {
+	const op = "storage.sqlite.Hint"
+	query := `
+	SELECT 
+		h.id, h.level_id, h.hint_text
+	FROM hints h
+	LEFT JOIN levels l on l.id = h.level_id
+	WHERE h.id = ?
+	`
+
+	rows, err := s.db.Query(query, id)
+	if err != nil {
+		return models.Hint{}, fmt.Errorf("failed to get hint: %s %w", op, err)
+	}
+
+	defer rows.Close()
+
+	hint := domain.Hint{}
+	for rows.Next() {
+		var (
+			hintId, levelId int
+			text            sql.NullString
+		)
+		if err := rows.Scan(&hintId, &levelId, &text); err != nil {
+			return domain.Hint{}, fmt.Errorf("scan error: %s %w", op, err)
+		}
+		hint.Id = hintId
+		hint.LevelId = levelId
+		hint.Text = text.String
+	}
+
+	return hint, nil
 }
