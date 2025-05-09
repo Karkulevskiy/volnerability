@@ -1,22 +1,31 @@
 package common
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/golang-jwt/jwt/v5"
+)
+
+var (
+	ErrInvalidToken         = fmt.Errorf("invalid token or claims")
+	ErrInvalidSigningMethod = fmt.Errorf("invalid signing method")
 )
 
 func ParseToken(tokenString string, appSecret []byte) (jwt.MapClaims, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (any, error) {
 		// Проверка метода подписи
 		if token.Method.Alg() != jwt.SigningMethodHS256.Alg() {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+			return nil, ErrInvalidSigningMethod
 		}
 		return appSecret, nil
 	})
 
 	if err != nil {
-		return nil, err
+		if errors.Is(err, ErrInvalidSigningMethod) {
+			return nil, ErrInvalidSigningMethod
+		}
+		return nil, ErrInvalidToken
 	}
 
 	// Извлечение claims
@@ -24,5 +33,5 @@ func ParseToken(tokenString string, appSecret []byte) (jwt.MapClaims, error) {
 		return claims, nil
 	}
 
-	return nil, fmt.Errorf("invalid token or claims")
+	return nil, ErrInvalidToken
 }

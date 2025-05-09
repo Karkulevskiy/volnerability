@@ -18,6 +18,10 @@ func BadRequest(msg string) Response {
 	return Response{Status: http.StatusBadRequest, Msg: msg}
 }
 
+func BadSubmit(msg string) Response {
+	return Response{Status: http.StatusAccepted, Msg: msg}
+}
+
 func InternalError(opts ...opt) Response {
 	r := &Response{Status: http.StatusInternalServerError, Msg: "internal error"}
 	for _, opt := range opts {

@@ -13,9 +13,8 @@ import (
 	"time"
 	grpcmgr "volnerability-game/auth/app/grpc"
 	authservice "volnerability-game/auth/services"
-	"volnerability-game/internal/api/code"
 	"volnerability-game/internal/api/hint"
-	sqllevel "volnerability-game/internal/api/sqlLevel"
+	"volnerability-game/internal/api/submit"
 	"volnerability-game/internal/api/user"
 	"volnerability-game/internal/cfg"
 	coderunner "volnerability-game/internal/codeRunner"
@@ -90,9 +89,8 @@ func main() {
 
 	codeRunner := coderunner.New(l, orchestrator.Queue)
 
-	r.Post("/code", code.New(l, codeRunner))
-	r.Post("/sqlLevel", sqllevel.New(l, db))
-	r.Get("/hint", hint.New(l, db))
+	r.Post("/submit", submit.New(l, db, codeRunner))
+	r.Get("/hint", hint.New(l, db)) // чисто для подсказок
 	r.Get("/user", user.New(l, db))
 
 	l.Info("starting server", slog.String("address", cfg.HttpServer.Address))
