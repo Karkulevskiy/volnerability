@@ -8,6 +8,16 @@ type User struct {
 	PassLevels    int
 }
 
+type UserLevel struct {
+	Id              int    `json:"id"`
+	LevelId         int    `json:"levelId"`
+	UserId          int    `json:"userId"`
+	IsCompleted     bool   `json:"isCompleted"`
+	LastInput       string `json:"lastInput"`
+	AttemptResponse string `json:"attemptResponse"` // last response from server on btn submit
+	Attempts        int    `json:"attempts"`
+}
+
 type Level struct {
 	Id            int      `json:"id"`
 	Name          string   `json:"name"`

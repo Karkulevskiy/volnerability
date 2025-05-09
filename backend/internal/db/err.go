@@ -2,14 +2,16 @@ package db
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/mattn/go-sqlite3"
 )
 
 var (
-	ErrUserExists   = errors.New("user already exists")
-	ErrUserNotFound = errors.New("user not found")
+	ErrUserExists        = errors.New("user already exists")
+	ErrUserNotFound      = errors.New("user not found")
+	ErrUserLevelNotFound = fmt.Errorf("user level not found")
 )
 
 func IsSyntaxError(err error) bool {

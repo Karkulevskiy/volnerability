@@ -1,8 +1,9 @@
-package sqllevels
+package levels
 
 import (
 	"context"
 	"volnerability-game/internal/db"
+	"volnerability-game/internal/domain"
 )
 
 func Run(ctx context.Context, storage *db.Storage, levelId int, input string) (string, error) {
@@ -20,4 +21,9 @@ func Run(ctx context.Context, storage *db.Storage, levelId int, input string) (s
 		return "not expected sql injection", nil
 	}
 	return "accepted", nil
+}
+
+func Submit(ctx context.Context, userLevel domain.UserLevel) error {
+
+	return nil
 }

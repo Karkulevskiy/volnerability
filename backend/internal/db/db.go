@@ -220,7 +220,7 @@ func (s *Storage) UpdateUser(ctx context.Context, user models.User) error {
 	return nil
 }
 
-func (s *Storage) UserLevels(ctx context.Context, email string) ([]models.Level, error) {
+func (s *Storage) UserLevels(ctx context.Context, email string) ([]models.UserLevel, error) {
 	const op = "storage.sqlite.UserLevels"
 	query := `
 	SELECT l.level_id, l.user_id l.is_completed, l.last_input, l.attempt_response, l.attempts
@@ -234,16 +234,79 @@ func (s *Storage) UserLevels(ctx context.Context, email string) ([]models.Level,
 		return nil, fmt.Errorf("failed to get user levels: %s %w", op, err)
 	}
 	defer rows.Close()
-	userLevels := []domain.Level{}
-	_ = userLevels
-	return nil, nil
+
+	userLevels := []domain.UserLevel{}
+
+	for rows.Next() {
+		var (
+			levelId, userId, attempts  int
+			isCompleted                bool
+			lastInput, attemptResponse sql.NullString
+		)
+
+		if err := rows.Scan(&levelId, &userId, &isCompleted, &lastInput, &attemptResponse, &attempts); err != nil {
+			return nil, fmt.Errorf("scan error: %s %w", op, err)
+		}
+
+		userLevel := domain.UserLevel{
+			LevelId:         levelId,
+			UserId:          userId,
+			IsCompleted:     isCompleted,
+			LastInput:       lastInput.String,
+			AttemptResponse: attemptResponse.String,
+			Attempts:        attempts,
+		}
+
+		userLevels = append(userLevels, userLevel)
+	}
+
+	return userLevels, nil
 }
 
-func (s *Storage) UpdateUserLevel(ctx context.Context, email string, levelId int) error {
+func (s *Storage) UpdateUserLevel(ctx context.Context, userLevel domain.UserLevel) error {
+	const op = "storage.sqlite.UpdateUserLevel"
+	query := `
+	UPDATE user_levels
+	SET is_completed = ?, last_input = ?, attempt_response = ?, attempts = ?
+	WHERE user_id = ? AND level_id = ?	
+	`
+
+	res, err := s.db.Exec(query, userLevel.IsCompleted, userLevel.LastInput, userLevel.AttemptResponse, userLevel.Attempts, userLevel.UserId, userLevel.LevelId)
+	if err != nil {
+		return fmt.Errorf("failed to update userLevel, op: %s. by userId: %d, levelId: %d", op, userLevel.UserId, userLevel.LevelId)
+	}
+
+	count, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get affected rows, op: %s, err: %w", op, err)
+	}
+
+	if count == 0 {
+		return ErrUserLevelNotFound
+	}
+
 	return nil
 }
 
-func (s *Storage) UserStartLevel(ctx context.Context, email string, levelId int) error {
+// UserStartLevel creates new row in user_levels
+func (s *Storage) UserStartLevel(ctx context.Context, userId, levelId int) error {
+	const op = "storage.sqlite.UserStartLevel"
+	query := `INSERT INTO user_levels(user_id, level_id) VALUES(?, ?)`
+
+	res, err := s.db.Exec(query, userId, levelId)
+	if err != nil {
+		return fmt.Errorf("failed to add new user_level. op: %s, err: %w", op, err)
+	}
+
+	count, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get affected rows, op: %s, err: %w", op, err)
+	}
+
+	if count == 0 {
+		return fmt.Errorf("no any rows inserted into user_levels. op: %s", op)
+	}
+
 	return nil
 }
 

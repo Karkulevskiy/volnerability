@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"volnerability-game/internal/common"
 	"volnerability-game/internal/db"
+	levels "volnerability-game/internal/levels"
 	"volnerability-game/internal/lib/api"
 	"volnerability-game/internal/lib/logger/utils"
-	sqllevels "volnerability-game/internal/sqlLevels"
 
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/render"
@@ -52,7 +52,7 @@ func New(l *slog.Logger, db *db.Storage) http.HandlerFunc {
 
 		// Добавить sql для подсказок
 		// Добавить ui на подсказки
-		_, err := sqllevels.Run(ctx, db, req.LevelId, req.Input)
+		_, err := levels.Run(ctx, db, req.LevelId, req.Input)
 		if err != nil {
 			l.Error("failed to run sql level", utils.Err(err))
 			render.JSON(w, r, api.InternalError())
