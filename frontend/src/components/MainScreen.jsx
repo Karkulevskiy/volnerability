@@ -2,7 +2,7 @@ import { Box, Button, Container, Paper, TextField, Typography } from "@mui/mater
 import Editor from "@monaco-editor/react";
 import Split from "react-split";
 
-export default function MainScreen({ level, setLevel, code, setCode, output, handleRunCode, handleHint, hint, darkMode }) {
+export default function MainScreen({ level, setLevel, code, setCode, output, handleRunCode, handleHint, hint, darkMode, toggleTheme, setShowProfile }) {
   return (
     <Container maxWidth="xl" disableGutters sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ p: 2 }}>
@@ -26,6 +26,23 @@ export default function MainScreen({ level, setLevel, code, setCode, output, han
             <Typography>Найди уязвимость и получи доступ к секретным данным!</Typography>
             <Button onClick={handleHint} sx={{ mt: 1 }} variant="outlined">Получить подсказку</Button>
             {hint && <Typography sx={{ mt: 1 }} color="secondary">{hint}</Typography>}
+            <Box sx={{ 
+              display: 'flex', 
+              gap: 1,
+              mt: 2,
+              justifyContent: 'flex-start'
+            }}>
+              <IconButton onClick={toggleTheme} color="inherit">
+                {darkMode ? <Brightness7 /> : <Brightness4 />}
+              </IconButton>
+              <Button 
+                variant="outlined" 
+                onClick={() => setShowProfile(true)}
+                size="small"
+              >
+                Профиль
+              </Button>
+            </Box>
           </Paper>
 
           <Split className="split-vertical" sizes={[70, 30]} minSize={100} gutterSize={8} direction="vertical"

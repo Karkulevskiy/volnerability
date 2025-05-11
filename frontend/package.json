@@ -7,18 +7,29 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "generate": "protoc -I ./src/proto --es_out ./src/proto --es_opt target=ts --connect-web_out ./src/proto --connect-web_opt target=ts ./src/proto/*.proto"
   },
   "dependencies": {
+    "@bufbuild/buf": "^1.53.0",
+    "@bufbuild/protobuf": "^2.3.0",
+    "@bufbuild/protoc-gen-es": "^2.3.0",
+    "@connectrpc/connect": "^2.0.2",
+    "@connectrpc/connect-web": "^2.0.2",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
+    "@grpc/grpc-js": "^1.13.3",
     "@monaco-editor/react": "^4.7.0",
     "@mui/icons-material": "^7.0.2",
     "@mui/material": "^7.0.2",
     "framer-motion": "^12.9.1",
+    "google-protobuf": "^3.21.4",
+    "grpc-web": "^1.5.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-split": "^2.0.14"
+    "react-split": "^2.0.14",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
   },
   "devDependencies": {
     "@eslint/js": "^9.22.0",
