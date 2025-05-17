@@ -2,10 +2,12 @@ package auth
 
 import (
 	"context"
+	"fmt"
 	authv1 "volnerability-game/auth/protos/gen/auth"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 )
 
@@ -21,6 +23,15 @@ type serverApi struct {
 
 func Register(gRPC *grpc.Server, auth Auther) {
 	authv1.RegisterAuthServer(gRPC, &serverApi{auth: auth})
+}
+
+func InitClient(address string) (authv1.AuthClient, error) {
+	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to gRPC server while initing client: %v", err)
+	}
+	client := authv1.NewAuthClient(conn)
+	return client, nil
 }
 
 func (s *serverApi) Login(ctx context.Context, req *authv1.LoginRequest) (res *authv1.LoginResponse, err error) {

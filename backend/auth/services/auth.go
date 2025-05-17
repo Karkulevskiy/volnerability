@@ -70,9 +70,8 @@ func (a *Auth) Login(
 		if errors.Is(err, db.ErrUserNotFound) {
 			return "", fmt.Errorf("user not found. %s: %w", op, ErrInvalidCredentials)
 		}
-		return "", fmt.Errorf("failed go get user. %s: %w", op, err)
+		return "", fmt.Errorf("failed to get user. %s: %w", op, err)
 	}
-
 	if err := bcrypt.CompareHashAndPassword(user.PassHash, []byte(password)); err != nil {
 		a.log.Info("failed to validate credentials", utils.Err(err))
 		return "", fmt.Errorf("%s: %w", op, ErrInvalidCredentials)

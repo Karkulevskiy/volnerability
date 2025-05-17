@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net"
 	authgrpc "volnerability-game/auth/api"
+	authv1 "volnerability-game/auth/protos/gen/auth"
 	authservice "volnerability-game/auth/services"
 
 	"google.golang.org/grpc"
@@ -14,6 +15,7 @@ type App struct {
 	log        *slog.Logger
 	gRPCServer *grpc.Server
 	address    string
+	grpcClnt   authv1.AuthClient
 }
 
 func (app *App) MustRun() {
@@ -22,15 +24,20 @@ func (app *App) MustRun() {
 	}
 }
 
-func New(log *slog.Logger, authService authservice.Auth, address string) *App {
+func New(log *slog.Logger, authService authservice.Auth, address string) (*App, error) {
 	gRPCServer := grpc.NewServer()
 	authgrpc.Register(gRPCServer, &authService)
+	grpcClnt, err := authgrpc.InitClient(address)
+	if err != nil {
+		return nil, fmt.Errorf("error while creating grpc app: %v", err)
+	}
 
 	return &App{
 		log,
 		gRPCServer,
 		address,
-	}
+		grpcClnt,
+	}, nil
 }
 
 func (app *App) Run() error {
@@ -57,4 +64,8 @@ func (app *App) Stop() {
 		Info("stopping gRPC server", slog.String("port", app.address))
 
 	app.gRPCServer.GracefulStop()
+}
+
+func (app *App) GetGRPCClient() authv1.AuthClient {
+	return app.grpcClnt
 }

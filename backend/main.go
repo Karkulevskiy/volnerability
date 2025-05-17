@@ -13,6 +13,7 @@ import (
 	"time"
 	grpcmgr "volnerability-game/auth/app/grpc"
 	authservice "volnerability-game/auth/services"
+	"volnerability-game/internal/api/auth"
 	"volnerability-game/internal/api/hint"
 	"volnerability-game/internal/api/submit"
 	"volnerability-game/internal/api/user"
@@ -75,9 +76,13 @@ func main() {
 	appSecret := os.Getenv("JWT_SECRET")
 
 	authSerivce := authservice.New(l, db, db, time.Duration(cfg.TokenTTL), appSecret)
-	grpcSrv := grpcmgr.New(l, *authSerivce, cfg.GRPCConfig.Address)
+	grpcSrv, err := grpcmgr.New(l, *authSerivce, cfg.GRPCConfig.Address)
+	if err != nil {
+		panic(err)
+	}
 	go grpcSrv.MustRun()
 	l.Info("auth server started", slog.String("address", cfg.GRPCConfig.Address))
+	grpcClnt := grpcSrv.GetGRPCClient()
 
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
@@ -90,6 +95,8 @@ func main() {
 	codeRunner := coderunner.New(l, orchestrator.Queue)
 
 	r.Post("/submit", submit.New(l, db, codeRunner))
+	r.Post("/login", auth.NewLoginHandler(l, grpcClnt))
+	r.Post("/register", auth.NewRegisterHandler(l, grpcClnt))
 	r.Get("/hint", hint.New(l, db)) // чисто для подсказок
 	r.Get("/user", user.New(l, db))
 
