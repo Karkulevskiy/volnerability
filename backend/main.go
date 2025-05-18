@@ -27,6 +27,7 @@ import (
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
+	"github.com/go-chi/cors"
 	"github.com/joho/godotenv"
 )
 
@@ -90,6 +91,9 @@ func main() {
 	r.Use(logger.New(l))
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.URLFormat)
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins: []string{"http://*"},
+	}))
 	r.Use(cstmMiddleware.New(l, appSecret))
 
 	codeRunner := coderunner.New(l, orchestrator.Queue)

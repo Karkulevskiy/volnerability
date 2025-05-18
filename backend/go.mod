@@ -59,6 +59,7 @@ require (
 require (
 	github.com/ajg/form v1.5.1 // indirect
 	github.com/docker/docker v27.5.1+incompatible
+	github.com/go-chi/cors v1.2.1
 	github.com/golang-migrate/migrate/v4 v4.18.2
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/sys v0.30.0 // indirect
