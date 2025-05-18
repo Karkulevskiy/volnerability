@@ -159,7 +159,7 @@ func (s *Storage) SaveUser(ctx context.Context, email string, passHash []byte) (
 	return uid, nil
 }
 
-func (s *Storage) User(ctx context.Context, email string) (models.User, error) { 
+func (s *Storage) User(ctx context.Context, email string) (models.User, error) {
 	const op = "storage.sqlite.User"
 	query := "SELECT * FROM users WHERE email = ?"
 
@@ -170,10 +170,11 @@ func (s *Storage) User(ctx context.Context, email string) (models.User, error) {
 
 	row := stmt.QueryRowContext(ctx, email)
 	var user models.User
-	if err = row.Scan(&user.ID, &user.Email, &user.PassHash); err != nil { //TODO: разобраться, почему бд отдаёт только 3 поля вместо 5
+	if err = row.Scan(&user.ID, &user.Email, &user.PassHash, &user.TotalAttempts, &user.PassLevels); err != nil { //TODO: разобраться, почему бд отдаёт только 3 поля вместо 5
 		if errors.Is(err, sql.ErrNoRows) {
 			return models.User{}, fmt.Errorf("%s: %s", op, ErrUserNotFound)
 		}
+		fmt.Println("OSHIBKA!!!!!!", err.Error())
 		return models.User{}, err
 	}
 	return user, nil

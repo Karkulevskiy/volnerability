@@ -27,9 +27,14 @@ export default function App() {
 
   const handleRunCode = async () => {
     try {
+      const token = localStorage.getItem("authToken");
+
       const res = await fetch("/api/submit", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+         },
         body: JSON.stringify({ levelId: level, code }),
       });
       const data = await res.json();
@@ -47,7 +52,13 @@ export default function App() {
 
   const handleHint = async () => {
     try {
-      const res = await fetch(`0.0.0.0:8080/hint?hintId=${hint}`);
+      const token = localStorage.getItem("authToken");
+
+      const res = await fetch(`0.0.0.0:8080/hint?hintId=${hint}`, {
+        headers: {
+          "Authorization": `Bearer ${token}`,
+        }
+      });
       const data = await res.json();
       setHint(data.hint || "Подсказка недоступна.");
     } catch {
