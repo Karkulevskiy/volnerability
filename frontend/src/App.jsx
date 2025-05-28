@@ -15,6 +15,7 @@ export default function App() {
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
 
   const [level, setLevel] = useState(1);
+  const [attempts, setAttempts] = useState(1);
   const [code, setCode] = useState("print('Hello, world!')");
   const [output, setOutput] = useState("");
   const [user, setUser] = useState({ email: "", completedLevels: 0, attempts: 0 });
@@ -39,12 +40,21 @@ export default function App() {
       });
       const data = await res.json();
       setOutput(data.output || "");
-      setUser((prev) => ({
-        ...prev,
-        attempts: prev.attempts + 1,
-        completedLevels: data.success && level > prev.completedLevels ? level : prev.completedLevels,
-      }));
-      if (data.success) setLevel((prev) => prev + 1);
+      setUser(prev => {
+        const newAttempts = prev.attempts + 1;
+        let newCompletedLevels = prev.completedLevels;
+        
+        if (data.success) {
+          newCompletedLevels = newCompletedLevels + 1;
+          setLevel((prev) => prev + 1);
+        }
+        
+        return {
+          ...prev,
+          attempts: newAttempts,
+          completedLevels: newCompletedLevels,
+        };
+      });
     } catch (err) {
       setOutput("Ошибка при выполнении запроса.");
     }
@@ -66,19 +76,22 @@ export default function App() {
     }
   };
 
-
+const handleLevelChange = (newLevel) => {
+    setLevel(newLevel);
+    setUser(prev => {
+      if (newLevel > prev.completedLevels) {
+        return {
+          ...prev,
+          completedLevels: newLevel
+        };
+      }
+      return prev;
+    });
+  };
 
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Box sx={{ position: "fixed", top: 8, right: 8, zIndex: 1200, display: "flex", gap: 1 }}>
-        <IconButton onClick={toggleTheme} color="inherit">
-          {darkMode ? <Brightness7 /> : <Brightness4 />}
-        </IconButton>
-        {isAuthenticated && (
-          <Button variant="outlined" onClick={() => setShowProfile(true)}>Профиль</Button>
-        )}
-      </Box>
 
       <ChangePasswordDialog open={showPasswordDialog} onClose={() => setShowPasswordDialog(false)} />
 
@@ -108,6 +121,8 @@ export default function App() {
           handleHint={handleHint}
           hint={hint}
           darkMode={darkMode}
+          toggleTheme={toggleTheme}
+          setShowProfile={setShowProfile}
         />
       )}
     </ThemeProvider>
