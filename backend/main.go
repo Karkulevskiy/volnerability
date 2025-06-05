@@ -76,6 +76,7 @@ func main() {
 
 	appSecret := os.Getenv("JWT_SECRET")
 
+	googleAuther := auth.NewGoogleAuther(cfg)
 	authSerivce := authservice.New(l, db, db, time.Duration(cfg.TokenTTL), appSecret)
 	grpcSrv, err := grpcmgr.New(l, *authSerivce, cfg.GRPCConfig.Address)
 	if err != nil {
@@ -86,17 +87,24 @@ func main() {
 	grpcClnt := grpcSrv.GetGRPCClient()
 
 	r := chi.NewRouter()
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   []string{"http://*"},
+		AllowedHeaders:   []string{"Content-Type", "Authorization"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE"},
+		AllowCredentials: true,
+	}))
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Logger)
 	r.Use(logger.New(l))
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.URLFormat)
-	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins: []string{"http://*"},
-	}))
 	r.Use(cstmMiddleware.New(l, appSecret))
 
 	codeRunner := coderunner.New(l, orchestrator.Queue)
+
+	//Google auth
+	r.Get("/auth/google", auth.GoogleAuthHandler)
+	r.Get("/auth/google/callback", auth.GoogleAuthCallbackHandler)
 
 	r.Post("/submit", submit.New(l, db, codeRunner))
 	r.Post("/login", auth.NewLoginHandler(l, grpcClnt))

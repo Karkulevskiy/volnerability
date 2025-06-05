@@ -12,6 +12,7 @@ type Config struct {
 	HttpServer         `yaml:"http_server"`
 	OrchestratorConfig `yaml:"orchestrator_config"`
 	GRPCConfig         `yaml:"grpc_config"`
+	GoogleOAuthConfig  `yaml:"google_oauth"`
 }
 
 type HttpServer struct {
@@ -32,6 +33,12 @@ type GRPCConfig struct {
 	Address  string        `yaml:"address" env-default:"127.0.0.1:8085"`
 	Timeout  time.Duration `yaml:"timeout" env-default:"4s"`
 	TokenTTL time.Duration `yaml:"token_ttl" env-default:"1h"`
+}
+
+type GoogleOAuthConfig struct {
+	ClientID     string `yaml:"client_id" env:"GOOGLE_CLIENT_ID,required"`
+	ClientSecret string `yaml:"client_secret" env:"GOOGLE_CLIENT_SECRET,required"`
+	RedirectURL  string `yaml:"redirect_url" env-default:"http://localhost:8080/auth/google/callback"`
 }
 
 func MustLoad() *Config {

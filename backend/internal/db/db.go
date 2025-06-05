@@ -22,7 +22,9 @@ var queries = []string{
 (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     email TEXT NOT NULL UNIQUE,
-    pass_hash BLOB NOT NULL,
+    pass_hash BLOB,
+	oauth_id TEXT
+	is_oauth BOOLEAN DEFAULT FALSE;
 	total_attempts INTEGER DEFAULT 0,
 	pass_levels INTEGER DEFAULT 0
 );`,
@@ -135,16 +137,16 @@ func (s *Storage) Close() error {
 	return s.db.Close()
 }
 
-func (s *Storage) SaveUser(ctx context.Context, email string, passHash []byte) (uid int64, err error) {
+func (s *Storage) SaveUser(ctx context.Context, email string, passHash []byte, isOauth bool) (uid int64, err error) {
 	const op = "storage.sqlite.SaveUser"
-	query := "INSERT INTO users(email, pass_hash) VALUES(?, ?)"
+	query := "INSERT INTO users(email, pass_hash, is_oauth) VALUES(?, ?, ?)"
 
 	stmt, err := s.db.Prepare(query)
 	if err != nil {
 		return -1, fmt.Errorf("%s: %s", op, err)
 	}
 
-	res, err := stmt.ExecContext(ctx, email, passHash)
+	res, err := stmt.ExecContext(ctx, email, passHash, isOauth)
 	if err != nil {
 		var sqlErr sqlite3.Error
 		if errors.As(err, &sqlErr) && sqlErr.ExtendedCode == sqlite3.ErrConstraintUnique {
@@ -174,7 +176,6 @@ func (s *Storage) User(ctx context.Context, email string) (models.User, error) {
 		if errors.Is(err, sql.ErrNoRows) {
 			return models.User{}, fmt.Errorf("%s: %s", op, ErrUserNotFound)
 		}
-		fmt.Println("OSHIBKA!!!!!!", err.Error())
 		return models.User{}, err
 	}
 	return user, nil

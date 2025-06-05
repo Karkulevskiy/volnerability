@@ -11,12 +11,13 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/mattn/go-sqlite3 v1.14.24
 	golang.org/x/crypto v0.33.0
-	golang.org/x/net v0.35.0
-	google.golang.org/grpc v1.72.0
+	golang.org/x/net v0.35.0 // indirect
+	google.golang.org/grpc v1.72.2
 	google.golang.org/protobuf v1.36.5
 )
 
 require (
+	cloud.google.com/go/compute/metadata v0.7.0 // indirect
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20240806141605-e8a1dd7889d6 // indirect
 	github.com/BurntSushi/toml v1.2.1 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
@@ -62,6 +63,7 @@ require (
 	github.com/go-chi/cors v1.2.1
 	github.com/golang-migrate/migrate/v4 v4.18.2
 	github.com/stretchr/testify v1.10.0
-	golang.org/x/sys v0.30.0 // indirect
+	golang.org/x/oauth2 v0.30.0
+	golang.org/x/sys v0.33.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
