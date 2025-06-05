@@ -23,8 +23,8 @@ var queries = []string{
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     email TEXT NOT NULL UNIQUE,
     pass_hash BLOB,
-	oauth_id TEXT
-	is_oauth BOOLEAN DEFAULT FALSE;
+	oauth_id TEXT,
+	is_oauth BOOLEAN DEFAULT FALSE,
 	total_attempts INTEGER DEFAULT 0,
 	pass_levels INTEGER DEFAULT 0
 );`,

@@ -103,8 +103,8 @@ func main() {
 	codeRunner := coderunner.New(l, orchestrator.Queue)
 
 	//Google auth
-	r.Get("/auth/google", auth.GoogleAuthHandler)
-	r.Get("/auth/google/callback", auth.GoogleAuthCallbackHandler)
+	r.Get("/auth/google", googleAuther.GoogleAuthHandler)
+	r.Get("/auth/google/callback", googleAuther.NewGoogleAuthCallbackHandler(l, db))
 
 	r.Post("/submit", submit.New(l, db, codeRunner))
 	r.Post("/login", auth.NewLoginHandler(l, grpcClnt))

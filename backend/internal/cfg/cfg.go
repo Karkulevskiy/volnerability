@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/ilyakaznacheev/cleanenv"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 )
 
 type Config struct {
@@ -54,4 +56,17 @@ func MustLoad() *Config {
 	}
 
 	return cfg
+}
+
+func (c *Config) GetGoogleOAuthConfig() *oauth2.Config {
+	return &oauth2.Config{
+		ClientSecret: c.GoogleOAuthConfig.ClientSecret,
+		ClientID:     c.GoogleOAuthConfig.ClientID,
+		RedirectURL:  c.GoogleOAuthConfig.RedirectURL,
+		Scopes: []string{
+			"https://www.googleapis.com/auth/userinfo.email",
+			"https://www.googleapis.com/auth/userinfo.profile",
+		},
+		Endpoint: google.Endpoint,
+	}
 }

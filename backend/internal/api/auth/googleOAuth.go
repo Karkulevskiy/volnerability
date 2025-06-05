@@ -31,7 +31,6 @@ func NewGoogleAuther(cfg *cfg.Config) *GoogleAuther {
 }
 
 func (a *GoogleAuther) GoogleAuthHandler(w http.ResponseWriter, r *http.Request) {
-	// Генерируем URL для аутентификации через Google
 	url := a.GoogleOauthCfg.AuthCodeURL("state")
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
@@ -39,7 +38,7 @@ func (a *GoogleAuther) GoogleAuthHandler(w http.ResponseWriter, r *http.Request)
 func (a *GoogleAuther) NewGoogleAuthCallbackHandler(l *slog.Logger, db *db.Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
-		const op = "rest.auth.NewGoogleAuthCallbackHandler"
+		const op = "rest.auth.GoogleAuthCallbackHandler"
 		reqId := ctx.Value(middleware.RequestIDKey).(string)
 		l = l.With(
 			slog.String("op", op),
