@@ -3,6 +3,7 @@ import {
   Box, Button, Container, Paper, TextField, Typography
 } from "@mui/material";
 import { motion } from "framer-motion";
+import { RegisterUser } from '../api/grpcClient.js'
 
 export default function AuthForm({ authMode, setAuthMode, onAuth }) {
   const [email, setEmail] = useState("");
@@ -10,16 +11,30 @@ export default function AuthForm({ authMode, setAuthMode, onAuth }) {
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
 
-  const handleSubmit = () => {
-    setEmailError("");
-    setPasswordError("");
-
+  const handleSubmit =  async () => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!email) setEmailError("Введите email.");
     else if (!emailRegex.test(email)) setEmailError("Некорректный email.");
     if (!password) setPasswordError("Введите пароль.");
 
-    if (email && password && emailRegex.test(email)) onAuth(email);
+    if (email && password && emailRegex.test(email)) try {
+      if (authMode === "login"){
+        // const response = await authClient.login(new LoginRequest({email, password}))
+        // if (response.token) {
+        //   onAuth(email); // Успешная авторизация
+        // } else {
+        //   setEmailError(response.error || 'Ошибка авторизации');
+        // }
+      } else {
+        const response = await RegisterUser(email, password)
+      }
+
+    } catch (err) {
+      console.log(err.toString());
+    }
+    setEmailError("");
+    setPasswordError("");
+
   };
 
   return (
