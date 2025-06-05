@@ -13,6 +13,7 @@ import (
 	"time"
 	grpcmgr "volnerability-game/auth/app/grpc"
 	authservice "volnerability-game/auth/services"
+	"volnerability-game/internal/api/auth"
 	"volnerability-game/internal/api/hint"
 	"volnerability-game/internal/api/submit"
 	"volnerability-game/internal/api/user"
@@ -26,6 +27,7 @@ import (
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
+	"github.com/go-chi/cors"
 	"github.com/joho/godotenv"
 )
 
@@ -74,12 +76,23 @@ func main() {
 
 	appSecret := os.Getenv("JWT_SECRET")
 
+	googleAuther := auth.NewGoogleAuther(cfg)
 	authSerivce := authservice.New(l, db, db, time.Duration(cfg.TokenTTL), appSecret)
-	grpcSrv := grpcmgr.New(l, *authSerivce, cfg.GRPCConfig.Address)
+	grpcSrv, err := grpcmgr.New(l, *authSerivce, cfg.GRPCConfig.Address)
+	if err != nil {
+		panic(err)
+	}
 	go grpcSrv.MustRun()
 	l.Info("auth server started", slog.String("address", cfg.GRPCConfig.Address))
+	grpcClnt := grpcSrv.GetGRPCClient()
 
 	r := chi.NewRouter()
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   []string{"http://*"},
+		AllowedHeaders:   []string{"Content-Type", "Authorization"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE"},
+		AllowCredentials: true,
+	}))
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Logger)
 	r.Use(logger.New(l))
@@ -89,7 +102,13 @@ func main() {
 
 	codeRunner := coderunner.New(l, orchestrator.Queue)
 
+	//Google auth
+	r.Get("/auth/google", auth.GoogleAuthHandler)
+	r.Get("/auth/google/callback", auth.GoogleAuthCallbackHandler)
+
 	r.Post("/submit", submit.New(l, db, codeRunner))
+	r.Post("/login", auth.NewLoginHandler(l, grpcClnt))
+	r.Post("/register", auth.NewRegisterHandler(l, grpcClnt))
 	r.Get("/hint", hint.New(l, db)) // чисто для подсказок
 	r.Get("/user", user.New(l, db))
 

@@ -6,6 +6,8 @@ type User struct {
 	PassHash      []byte
 	TotalAttempts int
 	PassLevels    int
+	OauthID       int64
+	IsOauth       bool
 }
 
 type UserLevel struct {

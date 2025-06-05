@@ -13,3 +13,6 @@ grpc_config:
   address: "127.0.0.1:8085"
   timeout: 4s
   token_ttl: 1h
+
+google_oauth:
+  redirect_url: "http://localhost:8080/auth/google/callback"
