@@ -2,9 +2,27 @@ package sqlrunner
 
 import (
 	"context"
+	"regexp"
 	"volnerability-game/internal/common"
 	"volnerability-game/internal/db"
 )
+
+var (
+	reFirstLevel = regexp.MustCompile(`(?i)' *OR *'([^']+)' *= *'([^']+)'`)
+)
+
+func isFirstSqlInjection(input string) bool {
+	matches := reFirstLevel.FindAllStringSubmatch(input, -1)
+	if len(matches) != 2 {
+		return false
+	}
+	for _, match := range matches {
+		if len(match) != 3 || match[1] != match[2] {
+			return false
+		}
+	}
+	return true
+}
 
 func NewTask(storage *db.Storage, levelId int, input string) (func(context.Context) (any, error), error) {
 	return func(ctx context.Context) (any, error) {
