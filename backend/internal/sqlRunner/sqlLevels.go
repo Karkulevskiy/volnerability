@@ -8,7 +8,9 @@ import (
 )
 
 var (
-	reFirstLevel = regexp.MustCompile(`(?i)' *OR *'([^']+)' *= *'([^']+)'`)
+	reFirstLevel  = regexp.MustCompile(`(?i)' *OR *'([^']+)' *= *'([^']+)'`)
+	reSecondLevel = regexp.MustCompile(`^'\s*UNION\s+SELECT\s+username,\s+password\s+FROM\s+users\s*--.*$`)
+	reThirdLevel  = regexp.MustCompile(`^';\s*DROP\s+TABLE\s+users;\s*--.*$`)
 )
 
 func isFirstSqlInjection(input string) bool {
@@ -22,6 +24,14 @@ func isFirstSqlInjection(input string) bool {
 		}
 	}
 	return true
+}
+
+func isSecondSqlInjection(input string) bool {
+	return reSecondLevel.MatchString(input)
+}
+
+func isThirdSqlInjection(input string) bool {
+	return reThirdLevel.MatchString(input)
 }
 
 func NewTask(storage *db.Storage, levelId int, input string) (func(context.Context) (any, error), error) {
