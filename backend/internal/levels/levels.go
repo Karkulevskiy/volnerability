@@ -2,9 +2,11 @@ package levels
 
 import (
 	"context"
+	"fmt"
 	coderunner "volnerability-game/internal/codeRunner"
 	"volnerability-game/internal/common"
 	"volnerability-game/internal/db"
+	"volnerability-game/internal/domain"
 	sqlrunner "volnerability-game/internal/sqlRunner"
 )
 
@@ -30,6 +32,16 @@ func New(r Request, db *db.Storage, codeRunner *coderunner.CodeRunner) (Submit, 
 	}
 	// TODO other tasks
 	return nil, nil
+}
+
+func Level(ctx context.Context, db *db.Storage, levelId int) (domain.Level, error) {
+	const op = "level.getLevelById"
+	level, err := db.Level(ctx, levelId)
+	if err != nil {
+		return domain.Level{}, fmt.Errorf("op: %s. failed to proceed get level by id: %d", op, levelId)
+	}
+	return level, nil
+	// TODO новое поле в бд
 }
 
 func validate(r Request) error {

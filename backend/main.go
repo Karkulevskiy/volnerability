@@ -15,6 +15,7 @@ import (
 	authservice "volnerability-game/auth/services"
 	"volnerability-game/internal/api/auth"
 	"volnerability-game/internal/api/hint"
+	"volnerability-game/internal/api/level"
 	"volnerability-game/internal/api/submit"
 	"volnerability-game/internal/api/user"
 	"volnerability-game/internal/cfg"
@@ -111,6 +112,7 @@ func main() {
 	r.Post("/register", auth.NewRegisterHandler(l, grpcClnt))
 	r.Get("/hint", hint.New(l, db)) // чисто для подсказок
 	r.Get("/user", user.New(l, db))
+	r.Get("/level", level.New(l, db))
 
 	l.Info("starting server", slog.String("address", cfg.HttpServer.Address))
 
