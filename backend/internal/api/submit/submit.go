@@ -34,7 +34,7 @@ func New(l *slog.Logger, db *db.Storage, codeRunner *coderunner.CodeRunner) http
 
 		l.Info("request body decoded", slog.Any("request", req))
 
-		submit, err := levels.New(req, db, codeRunner)
+		task, err := levels.New(req, db, codeRunner)
 		if err != nil {
 			l.Info("failed to create task", utils.Err(err))
 			if common.IsValidateErr(err) {
@@ -45,7 +45,7 @@ func New(l *slog.Logger, db *db.Storage, codeRunner *coderunner.CodeRunner) http
 			return
 		}
 
-		resp, err := submit(ctx)
+		resp, err := levels.ProcessTask(ctx, db, req, task)
 		if err != nil {
 			l.Info("error while running submit", utils.Err(err))
 			if errors.Is(err, common.ErrBadSubmit) {

@@ -23,3 +23,14 @@ func Map[T1, T2 any](mapFn func(T1) T2, objs ...T1) []T2 {
 	}
 	return mapped
 }
+
+func Remove[T comparable](s []T, toRemove ...T) []T {
+	clean := []T{}
+	toRemoveSet := ToSet(toRemove)
+	for _, v := range s {
+		if _, ok := toRemoveSet[v]; !ok {
+			clean = append(clean, v)
+		}
+	}
+	return clean
+}
