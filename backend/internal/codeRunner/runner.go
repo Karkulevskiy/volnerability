@@ -4,8 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"slices"
+	"strings"
 	"time"
 	"volnerability-game/internal/common"
+	"volnerability-game/internal/db"
 	"volnerability-game/internal/domain"
 )
 
@@ -21,20 +24,18 @@ func New(l *slog.Logger, queue chan domain.Task) *CodeRunner {
 	}
 }
 
-func (r *CodeRunner) NewTask(code, lang, reqId string) (func(context.Context) (any, error), error) {
-	if err := validate(lang); err != nil {
-		return nil, err
-	}
-	return func(ctx context.Context) (any, error) {
+func (r *CodeRunner) NewTask(ctx context.Context, db *db.Storage, code, reqId string, levelId int) (func(context.Context) (string, bool, error), error) {
+	return func(ctx context.Context) (string, bool, error) {
+		const op = "newTask.codeRunner.creatingTask"
+
 		task := domain.Task{
 			Code:  code,
-			Lang:  lang,
 			ReqId: reqId,
 			Resp:  make(chan domain.ExecuteResponse, 1),
 		}
 		defer close(task.Resp)
 
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+		ctx, cancel := context.WithTimeout(ctx, time.Second*10)
 		defer cancel()
 
 		r.queue <- task
@@ -42,18 +43,23 @@ func (r *CodeRunner) NewTask(code, lang, reqId string) (func(context.Context) (a
 		for {
 			select {
 			case resp := <-task.Resp:
-				return resp.Resp, nil
+				level, err := db.Level(ctx, levelId)
+				if err != nil {
+					return "", false, fmt.Errorf("%s: %w", op, err)
+				}
+				isCompleted := handleCmp(code, level.ExpectedInput)
+				return string(resp.Resp), isCompleted, nil
 			case <-ctx.Done():
-				r.l.Info(fmt.Sprintf("task runtime exceeded, reqId: %s", task.ReqId)) // TODO не хватает данных айди таски, чтобы потом по логам можно было нормально найти
-				return "", nil                                                        // TODO создать ошибку с типом, что таска не успела выполниться, и прокидывать дальше
+				r.l.Info(fmt.Sprintf("task runtime exceeded, reqId: %s", task.ReqId))
+				return "", false, fmt.Errorf("task runtime exceeded, reqId: %s", task.ReqId)
 			}
 		}
 	}, nil
 }
 
-func validate(lang string) error {
-	if lang != "py" {
-		return common.ErrUnsupportedLang
-	}
-	return nil
+func handleCmp(input, expectedInput string) bool {
+	toRemove := []string{" ", ""}
+	first := common.Remove(strings.Split(input, " "), toRemove...)
+	second := common.Remove(strings.Split(expectedInput, " "), toRemove...)
+	return slices.Equal(first, second)
 }

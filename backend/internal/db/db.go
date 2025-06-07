@@ -268,26 +268,66 @@ func (s *Storage) UserLevels(ctx context.Context, email string) ([]models.UserLe
 	return userLevels, nil
 }
 
-func (s *Storage) UpdateUserLevel(ctx context.Context, userLevel domain.UserLevel) error {
-	const op = "storage.sqlite.UpdateUserLevel"
-	query := `
-	UPDATE user_levels
-	SET is_completed = ?, last_input = ?, attempt_response = ?, attempts = ?
-	WHERE user_id = ? AND level_id = ?	
-	`
+func (s *Storage) UpdateUserAndLevel(ctx context.Context, user models.User, ul models.UserLevel) error {
+	const op = "storage.sqlite.UpdateUserAndLevel"
 
-	res, err := s.db.Exec(query, userLevel.IsCompleted, userLevel.LastInput, userLevel.AttemptResponse, userLevel.Attempts, userLevel.UserId, userLevel.LevelId)
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("failed to update userLevel, op: %s. by userId: %d, levelId: %d", op, userLevel.UserId, userLevel.LevelId)
+		return fmt.Errorf("%s: begin transaction error: %w", op, err)
 	}
 
-	count, err := res.RowsAffected()
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	// Обновляем пользователя
+	_, err = tx.ExecContext(ctx, `
+		UPDATE users
+		SET total_attempts = ?, pass_levels = ?
+		WHERE id = ?
+	`, user.TotalAttempts, user.PassLevels, user.ID)
 	if err != nil {
-		return fmt.Errorf("failed to get affected rows, op: %s, err: %w", op, err)
+		return fmt.Errorf("%s: update user error: %w", op, err)
 	}
 
-	if count == 0 {
-		return ErrUserLevelNotFound
+	// Проверяем, существует ли уже запись user_level
+	var exists bool
+	err = tx.QueryRowContext(ctx, `
+		SELECT EXISTS(
+			SELECT 1 FROM user_levels
+			WHERE user_id = ? AND level_id = ?
+		)
+	`, ul.UserId, ul.LevelId).Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("%s: check user_level existence error: %w", op, err)
+	}
+
+	if exists {
+		// Обновляем существующую запись
+		_, err = tx.ExecContext(ctx, `
+			UPDATE user_levels
+			SET is_completed = ?, last_input = ?, attempt_response = ?, attempts = ?
+			WHERE user_id = ? AND level_id = ?
+		`, ul.IsCompleted, ul.LastInput, ul.AttemptResponse, ul.Attempts, ul.UserId, ul.LevelId)
+		if err != nil {
+			return fmt.Errorf("%s: update user_level error: %w", op, err)
+		}
+	} else {
+		// Вставляем новую запись
+		_, err = tx.ExecContext(ctx, `
+			INSERT INTO user_levels (user_id, level_id, is_completed, last_input, attempt_response, attempts)
+			VALUES (?, ?, ?, ?, ?, ?)
+		`, ul.UserId, ul.LevelId, ul.IsCompleted, ul.LastInput, ul.AttemptResponse, ul.Attempts)
+		if err != nil {
+			return fmt.Errorf("%s: insert user_level error: %w", op, err)
+		}
+	}
+
+	// Подтверждаем транзакцию
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("%s: commit error: %w", op, err)
 	}
 
 	return nil

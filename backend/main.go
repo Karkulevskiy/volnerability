@@ -110,7 +110,7 @@ func main() {
 	r.Post("/submit", submit.New(l, db, codeRunner))
 	r.Post("/login", auth.NewLoginHandler(l, grpcClnt))
 	r.Post("/register", auth.NewRegisterHandler(l, grpcClnt))
-	r.Get("/hint", hint.New(l, db)) // чисто для подсказок
+	r.Get("/hint", hint.New(l, db))
 	r.Get("/user", user.New(l, db))
 	r.Get("/level", level.New(l, db))
 
