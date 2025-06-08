@@ -53,6 +53,36 @@ func FilesCmd(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, domain.NewResponseBadRequest("invalid cmd"))
 }
 
+// def send_email(name, email, message):
+//    email_body = f"From: {email}\nTo: support@example.com\nSubject: Feedback\n\n{message}"
+//    smtp.send(email_body)
+
+// curl -X POST "http://example.com/contact" \
+//     -d "email=attacker@example.com%0ABcc:admin@example.com" \
+//     -d "message=Hello!"
+
+// Тут подразумевается, что пользователь введет такой курл, и отправит сообщение свои коллегам: Привет, я создал новую БД вот скрипт - посмотрите пожалуйста
+func Email(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		render.JSON(w, r, domain.NewResponseBadRequest("invalid form"))
+		return
+	}
+
+	email := r.FormValue("email")
+	if email == "" {
+		render.JSON(w, r, domain.NewResponseBadRequest("invalid email"))
+		return
+	}
+
+	message := r.FormValue("message")
+	if message == "" {
+		render.JSON(w, r, domain.NewResponseBadRequest("invalid message"))
+		return
+	}
+
+	render.JSON(w, r, domain.NewResponseOK())
+}
+
 func MustRun() {
 	r := chi.NewRouter()
 
@@ -80,7 +110,7 @@ func MustRun() {
 		IdleTimeout:  time.Second * 5,
 	}
 
-	run(srv) // TODO graceful + pohui
+	run(srv) // TODO gracefully pohui
 }
 
 func run(srv *http.Server) {

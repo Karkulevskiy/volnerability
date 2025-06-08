@@ -36,10 +36,8 @@ func runLevel(ctx context.Context, db *db.Storage, levelId int, input string) (d
 	if similar := re.MatchString(input); !similar {
 		return domain.NewResponseBadRequest("invalid sql query"), nil
 	}
-
 	// check prepare sql
 	// db.IsQueryValid()
-
 	return domain.NewResponseOK(), nil
 }
 

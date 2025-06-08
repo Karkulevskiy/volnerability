@@ -22,10 +22,11 @@ import (
 	"volnerability-game/internal/cfg"
 	coderunner "volnerability-game/internal/codeRunner"
 	containermgr "volnerability-game/internal/containerMgr"
+	cstmMiddleware "volnerability-game/internal/middleware"
+
 	"volnerability-game/internal/db"
 	"volnerability-game/internal/lib/logger"
 	"volnerability-game/internal/lib/logger/utils"
-	cstmMiddleware "volnerability-game/internal/middleware"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"

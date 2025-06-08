@@ -20,8 +20,8 @@ func wdPathForCodes() (string, error) {
 	return wd[:ind] + "/" + "codes", nil
 }
 
-func createFileName(lang string) string {
-	return fmt.Sprintf("code-%s.%s", uuid.NewString(), lang)
+func createFileName() string {
+	return fmt.Sprintf("code-%s.%s", uuid.NewString(), "py")
 }
 
 func parseExecResp(output []byte) (string, error) {
@@ -32,13 +32,6 @@ func parseExecResp(output []byte) (string, error) {
 	return str[8 : len(str)-1], nil
 }
 
-func cmd(fileName, lang string) []string {
-	runner := ""
-	switch lang {
-	case "c":
-		runner = "" // TODO сюда нужно вставить команду на запуск си кода, если он будет. Пока на будущее
-	case "py":
-		runner = "python3"
-	}
-	return []string{runner, "/home/" + fileName}
+func cmd(fileName string) []string {
+	return []string{"python3", "/home/" + fileName}
 }

@@ -18,10 +18,10 @@ func New(ctx context.Context, r domain.Request, db *db.Storage, codeRunner *code
 	if err := validate(r); err != nil {
 		return nil, err
 	}
-	if r.LevelId < 7 { // curl tasks
+	if r.LevelId < -7 { // curl tasks
 		return curl.NewTask(db, r.LevelId, r.Input), nil
 	}
-	if r.LevelId < 11 { //sql tasks
+	if r.LevelId < -11 { //sql tasks
 		return sqlrunner.NewTask(db, r.LevelId, r.Input), nil
 	}
 	if r.LevelId < 16 { // code tasks
@@ -32,7 +32,11 @@ func New(ctx context.Context, r domain.Request, db *db.Storage, codeRunner *code
 
 func ProcessTask(ctx context.Context, db *db.Storage, req domain.Request, task Submit) (domain.Response, error) {
 	const op = "internal.levels.ProcessTask"
-
+	resp, err := task(ctx)
+	if err != nil {
+		return domain.Response{}, fmt.Errorf("%s: failed to do task, due err: %w", op, err)
+	}
+	return resp, nil
 	email, ok := ctx.Value("email").(string)
 	if !ok {
 		return domain.Response{}, fmt.Errorf("failed to get user email")
@@ -45,10 +49,10 @@ func ProcessTask(ctx context.Context, db *db.Storage, req domain.Request, task S
 		return domain.Response{}, fmt.Errorf("%s: failed to get user by email: %s, due err: %w", op, email, err)
 	}
 
-	resp, err := task(ctx)
-	if err != nil {
-		return domain.Response{}, fmt.Errorf("%s: failed to do task, due err: %w", op, err)
-	}
+	// resp, err := task(ctx)
+	// if err != nil {
+	// 	return domain.Response{}, fmt.Errorf("%s: failed to do task, due err: %w", op, err)
+	// }
 
 	if err := updateUserAttempt(ctx, db, user, req, resp); err != nil {
 		return domain.Response{}, fmt.Errorf("%s: failed to update user attempt due err: %w", op, err)

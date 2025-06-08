@@ -43,20 +43,24 @@ func (r *CodeRunner) NewTask(ctx context.Context, db *db.Storage, input, reqId s
 		for {
 			select {
 			case resp := <-task.Resp:
-				level, err := db.Level(ctx, levelId)
-				if err != nil {
-					return domain.Response{}, fmt.Errorf("%s: %w", op, err)
-				}
-				isCompleted := handleCmp(input, level.ExpectedInput)
-				if isCompleted {
-					return domain.NewResponseOK(), nil
-				}
-				return domain.NewResponseBadRequest(resp.Resp), nil
+				return handleResp(resp.Resp, levelId)
 			case <-ctx.Done():
 				r.l.Info(fmt.Sprintf("task runtime exceeded, reqId: %s", task.ReqId))
 				return domain.Response{}, fmt.Errorf("task runtime exceeded, reqId: %s", task.ReqId)
 			}
 		}
+	}
+}
+
+func handleResp(output string, levelId int) (domain.Response, error) {
+	switch levelId {
+	case 1:
+		if strings.Contains(output, "RecursionError: maximum recursion depth exceeded") {
+			return domain.NewResponseOK(), nil
+		}
+		return domain.NewResponseBadRequest("failed to overflow stack"), nil
+	default:
+		return domain.Response{}, fmt.Errorf("invalid level id")
 	}
 }
 

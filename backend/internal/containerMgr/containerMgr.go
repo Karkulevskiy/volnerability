@@ -46,7 +46,7 @@ func New(l *slog.Logger, cfg cfg.OrchestratorConfig) (Orchestrator, error) {
 		return Orchestrator{}, err
 	}
 
-	if err := os.Mkdir(wdPath, os.FileMode(os.O_CREATE|os.O_RDWR|os.O_APPEND)); err != nil {
+	if err := os.Mkdir(wdPath, 0777); err != nil {
 		if !errors.Is(err, os.ErrExist) {
 			l.Error("failed to create temp folder", utils.Err(err))
 			return Orchestrator{}, err
@@ -74,13 +74,20 @@ func New(l *slog.Logger, cfg cfg.OrchestratorConfig) (Orchestrator, error) {
 
 func (o *Orchestrator) Stop() error {
 	for _, id := range o.containers {
-		if err := o.dockerClient.ContainerPause(context.Background(), id); err != nil {
-			o.l.Error(fmt.Sprintf("failed stop container: %s", id), utils.Err(err))
+		if err := o.dockerClient.ContainerStop(context.Background(), id, container.StopOptions{}); err != nil {
+			o.l.Error(fmt.Sprintf("failed to stop container: %s", id), utils.Err(err))
 			return err
 		}
 	}
 
-	o.l.Info(fmt.Sprintf("containers: [%s] were stopped", strings.Join(o.containers, ", ")))
+	for _, id := range o.containers {
+		if err := o.dockerClient.ContainerRemove(context.Background(), id, container.RemoveOptions{}); err != nil {
+			o.l.Error(fmt.Sprintf("failed to delete container: %s", id), utils.Err(err))
+			return err
+		}
+	}
+
+	o.l.Info(fmt.Sprintf("containers: [%s] were deleted", strings.Join(o.containers, ", ")))
 
 	close(o.available)
 	close(o.Queue)
@@ -261,13 +268,12 @@ func (o *Orchestrator) executeTask(containerId string, t domain.Task) {
 func (o *Orchestrator) runCode(containerId string, t domain.Task) (domain.ExecuteResponse, error) {
 	empty := domain.ExecuteResponse{}
 	// TODO Хочется придумать пул свободных файлов, чтобы просто их перезаписывать
-	fileName := createFileName(t.Lang)
+	fileName := createFileName()
 	file, err := os.OpenFile(o.WorkingDir+"/"+fileName, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0666)
 	if err != nil {
 		return empty, err
 	}
 	defer os.Remove(file.Name())
-
 	if _, err := file.WriteString(t.Code); err != nil {
 		return empty, err
 	}
@@ -279,7 +285,7 @@ func (o *Orchestrator) runCode(containerId string, t domain.Task) (domain.Execut
 	ctx := context.Background()
 
 	execResp, err := o.dockerClient.ContainerExecCreate(ctx, containerId, container.ExecOptions{
-		Cmd:          cmd(fileName, t.Lang),
+		Cmd:          cmd(fileName),
 		AttachStdout: true,
 		AttachStderr: true,
 		Tty:          false,
@@ -305,5 +311,6 @@ func (o *Orchestrator) runCode(containerId string, t domain.Task) (domain.Execut
 		return empty, err
 	}
 
+	fmt.Printf("\n\nRESPONSE: %s\n\n", resp)
 	return domain.ExecuteResponse{Resp: resp}, nil
 }
