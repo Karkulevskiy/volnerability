@@ -1,13 +1,6 @@
 #!/bin/bash
 
-check_permissions() {
-    if [ ! -w "$DB_FILE" ]; then
-        echo "🔒 Нет прав на запись в файл '$DB_FILE'. Пытаюсь исправить..."
-        chmod 600 "$DB_FILE" || { echo "❌ Не удалось изменить права"; exit 1; }
-    fi
-}
-
-DB_FILE="storage.sql"
+DB_FILE="storage.db"
 
 # Проверка: существует ли база данных
 # Смотри задания тута:   https://docs.google.com/document/d/1HTJQ8QaDV1WNj_JcSdu62ZJJvmGZMzyCKzePJ7Nm7Tw/edit?usp=sharing
@@ -45,7 +38,8 @@ CREATE TABLE IF NOT EXISTS levels (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name VARCHAR(100) NOT NULL,
     description TEXT,
-    expected_input TEXT
+    expected_input TEXT,
+    start_input TEXT
 );
 
 CREATE TABLE IF NOT EXISTS hints (

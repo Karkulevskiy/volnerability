@@ -27,7 +27,8 @@ type Level struct {
 	Name          string   `json:"name"`
 	Description   string   `json:"description"`
 	Hints         []string `json:"hints"`
-	ExpectedInput string   `json:"expectedInput"`
+	ExpectedInput string   `json:"expectedInput,omitempty"`
+	StartInput    string   `json:"startInput,omitempty"`
 }
 
 type Hint struct {

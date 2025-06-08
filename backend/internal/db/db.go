@@ -315,6 +315,119 @@ func (s *Storage) UserStartLevel(ctx context.Context, userId, levelId int) error
 	return nil
 }
 
+func (s *Storage) Level(ctx context.Context, id int) (models.Level, error) {
+	const op = "storage.sqlite.LevelByID"
+	query := `
+	SELECT 
+		l.id, l.name, l.description, l.expected_input, l.start_input
+	FROM levels l
+	WHERE l.id = ?
+	`
+
+	row := s.db.QueryRowContext(ctx, query, id)
+
+	var (
+		levelId                     int
+		name, desc, expected, start sql.NullString
+	)
+
+	if err := row.Scan(&levelId, &name, &desc, &expected, &start); err != nil {
+		fmt.Println(err.Error())
+		if errors.Is(err, sql.ErrNoRows) {
+			return models.Level{}, fmt.Errorf("%s: level not found: %w", op, err)
+		}
+		return models.Level{}, fmt.Errorf("%s: scan error: %w", op, err)
+	}
+
+	hints, err := s.HintsByLevelId(ctx, id)
+	if err != nil {
+		fmt.Println(err.Error())
+		return models.Level{}, fmt.Errorf("%s: failed to query hints for level id: %d", op, id)
+	}
+
+	return models.Level{
+		Id:            levelId,
+		Name:          name.String,
+		Description:   desc.String,
+		ExpectedInput: expected.String,
+		StartInput:    start.String,
+		Hints:         common.Map(func(hint domain.Hint) string { return hint.Text }, hints...),
+	}, nil
+}
+
+// Если пригодится, не тестировано еще
+// func (s *Storage) Levels(ctx context.Context, ids ...int) ([]models.Level, error) {
+// 	const op = "storage.sqlite.Levels"
+//
+// 	if len(ids) == 0 {
+// 		return nil, nil
+// 	}
+//
+// 	// Создаём плейсхолдеры (?, ?, ?) и аргументы для запроса
+// 	placeholders := make([]string, len(ids))
+// 	args := make([]interface{}, len(ids))
+// 	for i, id := range ids {
+// 		placeholders[i] = "?"
+// 		args[i] = id
+// 	}
+//
+// 	query := fmt.Sprintf(`
+// 	SELECT
+// 		l.id, l.name, l.description, l.expected_input, h.hint_text
+// 	FROM levels l
+// 	LEFT JOIN hints h ON l.id = h.level_id
+// 	WHERE l.id IN (%s)
+// 	`, strings.Join(placeholders, ","))
+//
+// 	rows, err := s.db.QueryContext(ctx, query, args...)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("%s: query error: %w", op, err)
+// 	}
+// 	defer rows.Close()
+//
+// 	// Используем map для группировки уровней по id
+// 	levelMap := make(map[int]*models.Level)
+//
+// 	for rows.Next() {
+// 		var (
+// 			id              int
+// 			name            string
+// 			description     sql.NullString
+// 			expectedInput   sql.NullString
+// 			hintText        sql.NullString
+// 		)
+//
+// 		if err := rows.Scan(&id, &name, &description, &expectedInput, &hintText); err != nil {
+// 			return nil, fmt.Errorf("%s: scan error: %w", op, err)
+// 		}
+//
+// 		// Если уровень уже существует в карте, просто добавляем подсказку
+// 		level, exists := levelMap[id]
+// 		if !exists {
+// 			level = &models.Level{
+// 				Id:            id,
+// 				Name:          name,
+// 				Description:   description.String,
+// 				ExpectedInput: expectedInput.String,
+// 				Hints:         []string{},
+// 			}
+// 			levelMap[id] = level
+// 		}
+//
+// 		if hintText.Valid && hintText.String != "" {
+// 			level.Hints = append(level.Hints, hintText.String)
+// 		}
+// 	}
+//
+// 	// Конвертируем map в срез
+// 	levels := make([]models.Level, 0, len(levelMap))
+// 	for _, lvl := range levelMap {
+// 		levels = append(levels, *lvl)
+// 	}
+//
+// 	return levels, nil
+// }
+
 func (s *Storage) Levels(ctx context.Context, ids ...int) ([]models.Level, error) {
 	const op = "storage.sqlite.Levels"
 	query := `
@@ -361,22 +474,6 @@ func (s *Storage) Levels(ctx context.Context, ids ...int) ([]models.Level, error
 	return levels, nil
 }
 
-// Get concrete level by id
-func (s *Storage) Level(ctx context.Context, id int) (models.Level, error) {
-	const op = "storage.sqlite.Level"
-	levels, err := s.Levels(ctx, id)
-	if err != nil {
-		return models.Level{}, fmt.Errorf("failed to get level by id: %d, due to error: %w", id, err)
-	}
-	if len(levels) > 1 {
-		return models.Level{}, fmt.Errorf("failed to get onl one level by id: %d, selected several: %v", id, levels)
-	}
-	if len(levels) == 0 {
-		return models.Level{}, nil
-	}
-	return levels[0], nil
-}
-
 func (s *Storage) Hint(ctx context.Context, id int) (models.Hint, error) {
 	const op = "storage.sqlite.Hint"
 	query := `
@@ -409,4 +506,42 @@ func (s *Storage) Hint(ctx context.Context, id int) (models.Hint, error) {
 	}
 
 	return hint, nil
+}
+
+func (s *Storage) HintsByLevelId(ctx context.Context, id int) ([]models.Hint, error) {
+	const op = "storage.sqlite.HintsByLevelID"
+	query := `
+	SELECT 
+		h.id, h.level_id, h.hint_text
+	FROM hints h
+	WHERE h.level_id = ?
+	`
+
+	rows, err := s.db.QueryContext(ctx, query, id)
+	if err != nil {
+		return nil, fmt.Errorf("%s: query error: %w", op, err)
+	}
+	defer rows.Close()
+
+	var hints []models.Hint
+	for rows.Next() {
+		var (
+			hintId, lvlId int
+			text          sql.NullString
+		)
+		if err := rows.Scan(&hintId, &lvlId, &text); err != nil {
+			return nil, fmt.Errorf("%s: scan error: %w", op, err)
+		}
+		hints = append(hints, models.Hint{
+			Id:      hintId,
+			LevelId: lvlId,
+			Text:    text.String,
+		})
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("%s: rows iteration error: %w", op, err)
+	}
+
+	return hints, nil
 }

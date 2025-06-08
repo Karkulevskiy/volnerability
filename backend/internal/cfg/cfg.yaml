@@ -1,5 +1,5 @@
 http_server:
-  storage_path: "./internal/db/storage.sql"
+  storage_path: "./internal/db/storage.db"
   migration_path: "./internal/db/init.sql"
   address: "0.0.0.0:8080"
   timeout: 4s
