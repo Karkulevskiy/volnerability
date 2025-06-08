@@ -13,6 +13,7 @@ import (
 	"time"
 	grpcmgr "volnerability-game/auth/app/grpc"
 	authservice "volnerability-game/auth/services"
+	"volnerability-game/curlServer"
 	"volnerability-game/internal/api/auth"
 	"volnerability-game/internal/api/hint"
 	"volnerability-game/internal/api/level"
@@ -86,6 +87,8 @@ func main() {
 	go grpcSrv.MustRun()
 	l.Info("auth server started", slog.String("address", cfg.GRPCConfig.Address))
 	grpcClnt := grpcSrv.GetGRPCClient()
+
+	go curlServer.MustRun()
 
 	r := chi.NewRouter()
 	r.Use(cors.Handler(cors.Options{

@@ -7,6 +7,7 @@ import (
 	coderunner "volnerability-game/internal/codeRunner"
 	"volnerability-game/internal/common"
 	"volnerability-game/internal/db"
+	"volnerability-game/internal/domain"
 	"volnerability-game/internal/levels"
 	"volnerability-game/internal/lib/api"
 	"volnerability-game/internal/lib/logger/utils"
@@ -25,7 +26,7 @@ func New(l *slog.Logger, db *db.Storage, codeRunner *coderunner.CodeRunner) http
 			slog.String("request_id", reqId),
 		)
 
-		req := levels.Request{Id: reqId}
+		req := domain.Request{Id: reqId}
 		if err := render.DecodeJSON(r.Body, &req); err != nil {
 			l.Error("failed to parse request body", utils.Err(err))
 			render.JSON(w, r, api.BadRequest(err.Error()))
@@ -34,7 +35,7 @@ func New(l *slog.Logger, db *db.Storage, codeRunner *coderunner.CodeRunner) http
 
 		l.Info("request body decoded", slog.Any("request", req))
 
-		task, err := levels.New(req, db, codeRunner)
+		task, err := levels.New(ctx, req, db, codeRunner)
 		if err != nil {
 			l.Info("failed to create task", utils.Err(err))
 			if common.IsValidateErr(err) {

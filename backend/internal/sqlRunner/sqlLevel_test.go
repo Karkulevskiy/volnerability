@@ -17,6 +17,10 @@ func TestFirstLevelRegexp(t *testing.T) {
 			true,
 		},
 		{
+			`SELECT   *   FROM   users   WHERE   username   =   '   OR   'a'   =   'a'   AND   password   =   ' OR 'a'   =   'a'`,
+			true,
+		},
+		{
 			`SELECT * FROM users WHERE username = ' OR '1' = '1' AND password = ' OR '1' = '1'`,
 			true,
 		},
@@ -58,16 +62,14 @@ func TestSecondLevelRegexp(t *testing.T) {
 		input       string
 		isInjection bool
 	}{
-		{"' UNION SELECT username, password FROM users--", true},
-		{"'UNION SELECT username, password FROM users--", true},
-		{"' UNION SELECT username, password FROM users --", true},
-		{"' UNION SELECT username, password FROM users-- extra text", true},
-		{"' SELECT username, password FROM users--", false},
-		{"' UNION SELECT username FROM users--", false},
-		{"' UNION SELECT * FROM users--", false},
-		{"' UNION SELECT username, password FROM other_table--", false},
-		{"' UNION SELECT username, password FROM users", false},
-		{"' UNION SELECT username, password FROM users-- ", true},
+		// SELECT name, email FROM clients WHERE name LIKE '%$search%'
+		// $search = "' UNION SELECT username, password FROM users--"
+		// Result: SELECT name, email FROM clients WHERE name LIKE '%' UNION SELECT username, password FROM users--%'
+		{"SELECT name, email FROM clients WHERE name LIKE '%' UNION SELECT username, password FROM users--%'", true},
+		{"SELECT   name  ,   email   FROM   clients   WHERE   name   LIKE   '%'   UNION   SELECT   username  ,   password   FROM   users--%'", true},
+		{"SELECT name, email FROM clients WHERE name LIKE '%' UNION select username, password FROM users--%'", true},
+		{"SELECT name, email FROM clients WHERE name LIKE '%' UNION sxlect username, password FROM users--%'", false},
+		{"SELECT name, email FOM clients WHERE name LIKE '%' UNION SELECT username, password FROM users--%'", false},
 	}
 	for _, test := range tests {
 		fmt.Println("Testing input:", test.input)
@@ -81,6 +83,9 @@ func TestThirdLevelRegexp(t *testing.T) {
 		input       string
 		isInjection bool
 	}{
+		// db.Exec("INSERT INTO feedback (text) VALUES ('" + userInput + "')")
+		// userInput = '); DROP TABLE users;--
+		// Result: INSERT INTO feedback (text) VALUES (''); DROP TABLE users;--')
 		{"'; DROP TABLE users;--", true},
 		{"'; DROP TABLE users; --", true},
 		{"';DROP TABLE users;--", true},

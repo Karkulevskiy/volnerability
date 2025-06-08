@@ -24,12 +24,12 @@ func New(l *slog.Logger, queue chan domain.Task) *CodeRunner {
 	}
 }
 
-func (r *CodeRunner) NewTask(ctx context.Context, db *db.Storage, code, reqId string, levelId int) (func(context.Context) (string, bool, error), error) {
-	return func(ctx context.Context) (string, bool, error) {
+func (r *CodeRunner) NewTask(ctx context.Context, db *db.Storage, input, reqId string, levelId int) func(context.Context) (domain.Response, error) {
+	return func(ctx context.Context) (domain.Response, error) {
 		const op = "newTask.codeRunner.creatingTask"
 
 		task := domain.Task{
-			Code:  code,
+			Code:  input,
 			ReqId: reqId,
 			Resp:  make(chan domain.ExecuteResponse, 1),
 		}
@@ -45,16 +45,19 @@ func (r *CodeRunner) NewTask(ctx context.Context, db *db.Storage, code, reqId st
 			case resp := <-task.Resp:
 				level, err := db.Level(ctx, levelId)
 				if err != nil {
-					return "", false, fmt.Errorf("%s: %w", op, err)
+					return domain.Response{}, fmt.Errorf("%s: %w", op, err)
 				}
-				isCompleted := handleCmp(code, level.ExpectedInput)
-				return string(resp.Resp), isCompleted, nil
+				isCompleted := handleCmp(input, level.ExpectedInput)
+				if isCompleted {
+					return domain.NewResponseOK(), nil
+				}
+				return domain.NewResponseBadRequest(resp.Resp), nil
 			case <-ctx.Done():
 				r.l.Info(fmt.Sprintf("task runtime exceeded, reqId: %s", task.ReqId))
-				return "", false, fmt.Errorf("task runtime exceeded, reqId: %s", task.ReqId)
+				return domain.Response{}, fmt.Errorf("task runtime exceeded, reqId: %s", task.ReqId)
 			}
 		}
-	}, nil
+	}
 }
 
 func handleCmp(input, expectedInput string) bool {

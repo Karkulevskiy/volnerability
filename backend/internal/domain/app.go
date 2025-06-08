@@ -2,6 +2,33 @@ package domain
 
 import "database/sql"
 
+type Request struct {
+	Id      string
+	LevelId int    `json:"levelId"`
+	Input   string `json:"input"`
+}
+
+type Response struct {
+	Status      string `json:"status"`
+	Response    string `json:"response,omitempty"`
+	IsCompleted bool   `json:"isCompleted,omitempty"`
+}
+
+func NewResponseOK() Response {
+	return Response{
+		Status:      "200. StatusOK",
+		IsCompleted: true,
+	}
+}
+
+func NewResponseBadRequest(output string) Response {
+	return Response{
+		Status:      "404. BadRequest",
+		Response:    output,
+		IsCompleted: false,
+	}
+}
+
 type User struct {
 	ID            int64
 	Email         string

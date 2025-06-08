@@ -4,18 +4,47 @@ import (
 	"context"
 	"fmt"
 	"regexp"
-	"volnerability-game/internal/common"
 	"volnerability-game/internal/db"
+	"volnerability-game/internal/domain"
 )
 
 var (
-	reFirstLevel  = regexp.MustCompile(`(?i)' *OR *'([^']+)' *= *'([^']+)'`)
-	reSecondLevel = regexp.MustCompile(`^'\s*UNION\s+SELECT\s+username,\s+password\s+FROM\s+users\s*--.*$`)
-	reThirdLevel  = regexp.MustCompile(`^';\s*DROP\s+TABLE\s+users;\s*--.*$`)
+	reFirstLevelInjection = regexp.MustCompile(`(?i)' *OR *'([^']+)' *= *'([^']+)'`)
+	reFirstLevel          = regexp.MustCompile(`(?i)' *OR *'([^']+)' *= *'([^']+)' AND '([^']+)' *= *'([^']+)'`)
+
+	reSecondLevelInjection = regexp.MustCompile(`^'\s*UNION\s+SELECT\s+username,\s+password\s+FROM\s+users\s*--.*$`)
+	reSecondLevel          = regexp.MustCompile(`(?i)^SELECT\s+name\s*,\s*email\s+FROM\s+clients\s+WHERE\s+name\s+LIKE\s+'%'\s+UNION\s+SELECT\s+username\s*,\s*password\s+FROM\s+users--'?%'\s*$`)
+
+	reThirdLevelInjection = regexp.MustCompile(`^';\s*DROP\s+TABLE\s+users;\s*--.*$`)
+	reThirdLevel          = regexp.MustCompile(`^';\s*DROP\s+TABLE\s+users;\s*--.*$`)
 )
 
+var (
+	levelsMap = map[int]*regexp.Regexp{
+		7: reFirstLevelInjection,
+		8: reSecondLevelInjection,
+		9: reThirdLevelInjection,
+	}
+)
+
+func runLevel(ctx context.Context, db *db.Storage, levelId int, input string) (domain.Response, error) {
+	re, ok := levelsMap[levelId]
+	if !ok {
+		return domain.Response{}, fmt.Errorf("failed re for levelId: %d", levelId)
+	}
+
+	if similar := re.MatchString(input); !similar {
+		return domain.NewResponseBadRequest("invalid sql query"), nil
+	}
+
+	// check prepare sql
+	// db.IsQueryValid()
+
+	return domain.NewResponseOK(), nil
+}
+
 func isFirstSqlInjection(input string) bool {
-	matches := reFirstLevel.FindAllStringSubmatch(input, -1)
+	matches := reFirstLevelInjection.FindAllStringSubmatch(input, -1)
 	if len(matches) != 2 {
 		return false
 	}
@@ -28,11 +57,11 @@ func isFirstSqlInjection(input string) bool {
 }
 
 func isSecondSqlInjection(input string) bool {
-	return reSecondLevel.MatchString(input)
+	return reSecondLevelInjection.MatchString(input)
 }
 
 func isThirdSqlInjection(input string) bool {
-	return reThirdLevel.MatchString(input)
+	return reThirdLevelInjection.MatchString(input)
 }
 
 var (
@@ -49,17 +78,19 @@ var (
 	}
 )
 
-func NewTask(storage *db.Storage, levelId int, input string) (func(context.Context) (string, bool, error), error) {
-	return func(ctx context.Context) (string, bool, error) {
+func NewTask(db *db.Storage, levelId int, input string) func(context.Context) (domain.Response, error) {
+	return func(ctx context.Context) (domain.Response, error) {
 		const op = "sqlRunner.NewTask.validation"
 		if levelId >= len(levelsCheckers) {
-			return "", false, fmt.Errorf("%s: level id is bigger then availabe sql levels. levelId: %d, total levels: %d", op, levelId, len(levelsCheckers))
+			return domain.Response{}, fmt.Errorf("%s: level id is bigger then availabe sql levels. levelId: %d, total levels: %d", op, levelId, len(levelsCheckers))
 		}
-		passed := levelsCheckers[levelId](input)
-		if passed {
-			return common.LevelPassed, true, nil
-		}
-		return common.LevelNotPassed, false, nil
+		return runLevel(ctx, db, levelId, input)
+		// passed := levelsCheckers[levelId](input)
+		// if passed {
+		// 	return domain.NewResponseOK(), nil
+		// }
+		// TODO неправильный респонс, нужно подумать, что делать с sql
+		// return domain.NewResponseBadRequest("invalid sql injection"), nil
 		// TODO решил оставить на всякий
 		// level, err := storage.Level(ctx, levelId)
 		// if err != nil {
@@ -75,5 +106,5 @@ func NewTask(storage *db.Storage, levelId int, input string) (func(context.Conte
 		// 	return "", false, common.NewBadSubmitErr("not expected sql injection")
 		// }
 		// return "", true, nil
-	}, nil
+	}
 }
