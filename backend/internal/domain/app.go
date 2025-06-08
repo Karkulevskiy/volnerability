@@ -1,12 +1,14 @@
 package domain
 
+import "database/sql"
+
 type User struct {
 	ID            int64
 	Email         string
 	PassHash      []byte
 	TotalAttempts int
 	PassLevels    int
-	OauthID       int64
+	OauthID       sql.NullInt64
 	IsOauth       bool
 }
 

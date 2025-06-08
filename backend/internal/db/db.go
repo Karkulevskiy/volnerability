@@ -152,6 +152,7 @@ func (s *Storage) SaveUser(ctx context.Context, email string, passHash []byte, i
 		if errors.As(err, &sqlErr) && sqlErr.ExtendedCode == sqlite3.ErrConstraintUnique {
 			return -1, fmt.Errorf("%s: %s", op, ErrUserExists)
 		}
+		return -1, fmt.Errorf("%s: %s", op, err)
 	}
 
 	uid, err = res.LastInsertId()
@@ -162,6 +163,7 @@ func (s *Storage) SaveUser(ctx context.Context, email string, passHash []byte, i
 }
 
 func (s *Storage) User(ctx context.Context, email string) (models.User, error) {
+	fmt.Println("ALLOOOOO")
 	const op = "storage.sqlite.User"
 	query := "SELECT * FROM users WHERE email = ?"
 
@@ -172,11 +174,12 @@ func (s *Storage) User(ctx context.Context, email string) (models.User, error) {
 
 	row := stmt.QueryRowContext(ctx, email)
 	var user models.User
-	if err = row.Scan(&user.ID, &user.Email, &user.PassHash, &user.TotalAttempts, &user.PassLevels); err != nil { //TODO: разобраться, почему бд отдаёт только 3 поля вместо 5
+	if err = row.Scan(&user.ID, &user.Email, &user.PassHash, &user.OauthID, &user.IsOauth, &user.TotalAttempts, &user.PassLevels); err != nil {
+		fmt.Println(err)
 		if errors.Is(err, sql.ErrNoRows) {
 			return models.User{}, fmt.Errorf("%s: %s", op, ErrUserNotFound)
 		}
-		return models.User{}, err
+		return models.User{}, fmt.Errorf("%s: %s", op, err)
 	}
 	return user, nil
 }

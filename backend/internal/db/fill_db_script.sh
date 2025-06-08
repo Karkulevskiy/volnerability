@@ -1,5 +1,12 @@
 #!/bin/bash
 
+check_permissions() {
+    if [ ! -w "$DB_FILE" ]; then
+        echo "🔒 Нет прав на запись в файл '$DB_FILE'. Пытаюсь исправить..."
+        chmod 600 "$DB_FILE" || { echo "❌ Не удалось изменить права"; exit 1; }
+    fi
+}
+
 DB_FILE="storage.sql"
 
 # Проверка: существует ли база данных
@@ -9,6 +16,7 @@ if [[ ! -f "$DB_FILE" ]]; then
     sqlite3 "$DB_FILE" "" || { echo "❌ Ошибка при создании базы данных."; exit 1; }
 else
     echo "📁 Используем существующую базу данных '$DB_FILE'"
+    check_permissions
 fi
 
 # Выполнение SQL скрипта (создание таблиц + вставка данных)
@@ -19,6 +27,8 @@ CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     email TEXT NOT NULL UNIQUE,
     pass_hash BLOB NOT NULL,
+    oauth_id TEXT,
+	is_oauth BOOLEAN DEFAULT FALSE,
     total_attempts INTEGER DEFAULT 0,
     pass_levels INTEGER DEFAULT 0
 );
