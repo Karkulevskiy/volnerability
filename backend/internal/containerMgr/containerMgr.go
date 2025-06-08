@@ -74,18 +74,25 @@ func New(l *slog.Logger, cfg cfg.OrchestratorConfig) (Orchestrator, error) {
 
 func (o *Orchestrator) Stop() error {
 	for _, id := range o.containers {
-		if err := o.dockerClient.ContainerStop(context.Background(), id, container.StopOptions{}); err != nil {
+		if err := o.dockerClient.ContainerUnpause(context.Background(), id); err != nil {
 			o.l.Error(fmt.Sprintf("failed to stop container: %s", id), utils.Err(err))
 			return err
 		}
 	}
 
-	for _, id := range o.containers {
-		if err := o.dockerClient.ContainerRemove(context.Background(), id, container.RemoveOptions{}); err != nil {
-			o.l.Error(fmt.Sprintf("failed to delete container: %s", id), utils.Err(err))
-			return err
-		}
-	}
+	// for _, id := range o.containers {
+	// 	if err := o.dockerClient.ContainerStop(context.Background(), id, container.StopOptions{}); err != nil {
+	// 		o.l.Error(fmt.Sprintf("failed to stop container: %s", id), utils.Err(err))
+	// 		return err
+	// 	}
+	// }
+	//
+	// for _, id := range o.containers {
+	// 	if err := o.dockerClient.ContainerRemove(context.Background(), id, container.RemoveOptions{}); err != nil {
+	// 		o.l.Error(fmt.Sprintf("failed to delete container: %s", id), utils.Err(err))
+	// 		return err
+	// 	}
+	// }
 
 	o.l.Info(fmt.Sprintf("containers: [%s] were deleted", strings.Join(o.containers, ", ")))
 

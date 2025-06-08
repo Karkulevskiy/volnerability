@@ -32,11 +32,7 @@ func New(ctx context.Context, r domain.Request, db *db.Storage, codeRunner *code
 
 func ProcessTask(ctx context.Context, db *db.Storage, req domain.Request, task Submit) (domain.Response, error) {
 	const op = "internal.levels.ProcessTask"
-	resp, err := task(ctx)
-	if err != nil {
-		return domain.Response{}, fmt.Errorf("%s: failed to do task, due err: %w", op, err)
-	}
-	return resp, nil
+
 	email, ok := ctx.Value("email").(string)
 	if !ok {
 		return domain.Response{}, fmt.Errorf("failed to get user email")
@@ -49,10 +45,10 @@ func ProcessTask(ctx context.Context, db *db.Storage, req domain.Request, task S
 		return domain.Response{}, fmt.Errorf("%s: failed to get user by email: %s, due err: %w", op, email, err)
 	}
 
-	// resp, err := task(ctx)
-	// if err != nil {
-	// 	return domain.Response{}, fmt.Errorf("%s: failed to do task, due err: %w", op, err)
-	// }
+	resp, err := task(ctx)
+	if err != nil {
+		return domain.Response{}, fmt.Errorf("%s: failed to do task, due err: %w", op, err)
+	}
 
 	if err := updateUserAttempt(ctx, db, user, req, resp); err != nil {
 		return domain.Response{}, fmt.Errorf("%s: failed to update user attempt due err: %w", op, err)
