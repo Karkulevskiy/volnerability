@@ -28,6 +28,11 @@ func (r *CodeRunner) NewTask(ctx context.Context, db *db.Storage, input, reqId s
 	return func(ctx context.Context) (domain.Response, error) {
 		const op = "newTask.codeRunner.creatingTask"
 
+		input, err := wrapCode(input, levelId)
+		if err != nil {
+			return domain.Response{}, fmt.Errorf("%s: %w", op, err)
+		}
+
 		task := domain.Task{
 			Code:  input,
 			ReqId: reqId,
@@ -52,16 +57,49 @@ func (r *CodeRunner) NewTask(ctx context.Context, db *db.Storage, input, reqId s
 	}
 }
 
+func wrapCode(input string, levelId int) (string, error) {
+
+	switch levelId {
+	case 2:
+		return fmt.Sprintf(`
+import resource
+
+soft, hard = 100 * 1024, 100 * 1024
+resource.setrlimit(resource.RLIMIT_AS, (soft, hard))
+
+%s
+		`, input), nil
+	}
+
+	return "", fmt.Errorf("invalid level id while wrapping code")
+}
+
 func handleResp(output string, levelId int) (domain.Response, error) {
 	switch levelId {
+	// TODO поставить нужный айди уровня
 	case 1:
 		if strings.Contains(output, "RecursionError: maximum recursion depth exceeded") {
 			return domain.NewResponseOK(), nil
 		}
-		return domain.NewResponseBadRequest("failed to overflow stack"), nil
+	case 2:
+		// 	import resource
+		//
+		// # Ограничим память до 100 MB
+		// soft, hard = 100 * 1024 * 1024, 100 * 1024 * 1024
+		// resource.setrlimit(resource.RLIMIT_AS, (soft, hard))
+		//
+		// # Пример: создаем большой список — MemoryError
+		// a = []
+		// while True:
+		//     a.append("X" * 10**6)
+		if strings.Contains(output, "MemoryError") {
+			return domain.NewResponseOK(), nil
+		}
+
 	default:
 		return domain.Response{}, fmt.Errorf("invalid level id")
 	}
+	return domain.NewResponseBadRequest("failed to overflow stack"), nil
 }
 
 func handleCmp(input, expectedInput string) bool {

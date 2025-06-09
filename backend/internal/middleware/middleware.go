@@ -39,7 +39,6 @@ func New(log *slog.Logger, appSecret string) func(next http.Handler) http.Handle
 				return
 			}
 
-			// прокинул дальше почту пользователя
 			userEmail := claims[emailClaim]
 			ctx := context.WithValue(r.Context(), emailClaim, userEmail)
 			log.Info("user authorized", slog.Any("claims", claims))
