@@ -2,9 +2,9 @@ package curlServer
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
-	"strings"
 	"time"
 	"volnerability-game/internal/domain"
 	"volnerability-game/internal/lib/logger/utils"
@@ -15,8 +15,12 @@ import (
 	"github.com/go-chi/render"
 )
 
+func newResponseOK(levelId int) domain.Response {
+	return domain.NewResponseOK(domain.WithCurlLevelId(levelId))
+}
+
 func AbountHandler(w http.ResponseWriter, r *http.Request) {
-	render.JSON(w, r, domain.NewResponseOK())
+	render.JSON(w, r, newResponseOK(1))
 }
 
 func GetDbScheme(w http.ResponseWriter, r *http.Request) {
@@ -25,29 +29,34 @@ func GetDbScheme(w http.ResponseWriter, r *http.Request) {
 		render.JSON(w, r, domain.NewResponseBadRequest("unknown user role"))
 		return
 	}
-	render.JSON(w, r, domain.NewResponseOK())
+	render.JSON(w, r, newResponseOK(2))
 }
 
 func Login(w http.ResponseWriter, r *http.Request) {
-	user, password := r.URL.Query().Get("user"), r.URL.Query().Get("password")
+	if err := r.ParseForm(); err != nil {
+		render.JSON(w, r, domain.NewResponseBadRequest(fmt.Sprintf("failed to parse form: %s", err.Error())))
+	}
+	user := r.Form.Get("user")
+	password := r.Form.Get("password")
 	if user == "admin" && password != "" {
-		render.JSON(w, r, domain.NewResponseOK())
+		render.JSON(w, r, newResponseOK(3))
 		return
 	}
 	render.JSON(w, r, domain.NewResponseBadRequest("invalid credentials"))
 }
 
 func FilesCmd(w http.ResponseWriter, r *http.Request) {
-	req := domain.Request{}
-	if err := render.DecodeJSON(r.Body, &req); err != nil {
-		slog.Error("failed to decode body: ")
-		render.JSON(w, r, domain.NewResponseBadRequest("failed to decode json body"))
+	if err := r.ParseForm(); err != nil {
+		render.JSON(w, r, domain.NewResponseBadRequest(fmt.Sprintf("failed to parse form: %s", err.Error())))
+	}
+	cmd := r.Form.Get("cmd")
+	if cmd == "ls" {
+		render.JSON(w, r, newResponseOK(4))
 		return
 	}
-
-	input := strings.Trim(req.Input, " ")
-	if input == "ls" || input == "cat" {
-		render.JSON(w, r, domain.NewResponseOK())
+	fmt.Printf("INPUT: %s\n", cmd)
+	if cmd == "cat db.sql" {
+		render.JSON(w, r, newResponseOK(5))
 		return
 	}
 	render.JSON(w, r, domain.NewResponseBadRequest("invalid cmd"))
@@ -98,7 +107,7 @@ func MustRun() {
 	r.Use(middleware.URLFormat)
 
 	r.Get("/about", AbountHandler)
-	r.Post("/db/about", GetDbScheme)
+	r.Get("/db/about", GetDbScheme)
 	r.Post("/login", Login)
 	r.Post("/files", FilesCmd)
 

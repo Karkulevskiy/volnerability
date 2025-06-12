@@ -12,13 +12,24 @@ type Response struct {
 	Status      string `json:"status"`
 	Response    string `json:"response,omitempty"`
 	IsCompleted bool   `json:"isCompleted,omitempty"`
+	CurlLevelId int    `json:"curlLevelId,omitempty"`
 }
 
-func NewResponseOK() Response {
-	return Response{
+func WithCurlLevelId(levelId int) func(*Response) {
+	return func(r *Response) {
+		r.CurlLevelId = levelId
+	}
+}
+
+func NewResponseOK(opts ...func(*Response)) Response {
+	r := &Response{
 		Status:      "200. StatusOK",
 		IsCompleted: true,
 	}
+	for _, opt := range opts {
+		opt(r)
+	}
+	return *r
 }
 
 func NewResponseBadRequest(output string) Response {
