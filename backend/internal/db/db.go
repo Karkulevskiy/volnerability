@@ -225,6 +225,42 @@ func (s *Storage) UpdateUser(ctx context.Context, user models.User) error {
 	return nil
 }
 
+func (s *Storage) UserLevel(ctx context.Context, email string, levelId int) (models.UserLevel, error) {
+	const op = "storage.sqlite.UserLevel"
+	query := `
+	SELECT l.id, l.level_id, l.user_id, l.is_completed, l.last_input, l.attempt_response, l.attempts
+	FROM user_levels l
+	LEFT JOIN users u ON u.id = l.user_id
+	WHERE u.email = ? AND l.level_id = ?
+	LIMIT 1
+	`
+
+	var (
+		id, levelID, userID, attempts int
+		isCompleted                   bool
+		lastInput, attemptResponse    sql.NullString
+	)
+
+	row := s.db.QueryRowContext(ctx, query, email, levelId)
+
+	if err := row.Scan(&id, &levelID, &userID, &isCompleted, &lastInput, &attemptResponse, &attempts); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return models.UserLevel{}, ErrUserLevelNotFound
+		}
+		return models.UserLevel{}, fmt.Errorf("%s: query failed: %w", op, err)
+	}
+
+	return models.UserLevel{
+		Id:              id,
+		LevelId:         levelID,
+		UserId:          userID,
+		IsCompleted:     isCompleted,
+		LastInput:       lastInput.String,
+		AttemptResponse: attemptResponse.String,
+		Attempts:        attempts,
+	}, nil
+}
+
 func (s *Storage) UserLevels(ctx context.Context, email string) ([]models.UserLevel, error) {
 	const op = "storage.sqlite.UserLevels"
 	query := `

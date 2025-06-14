@@ -60,7 +60,9 @@ func (r *CodeRunner) NewTask(ctx context.Context, db *db.Storage, input, reqId s
 func wrapCode(input string, levelId int) (string, error) {
 
 	switch levelId {
-	case 2:
+	case 9:
+		return input, nil
+	case 10:
 		return fmt.Sprintf(`
 import resource
 
@@ -69,6 +71,17 @@ resource.setrlimit(resource.RLIMIT_AS, (soft, hard))
 
 %s
 		`, input), nil
+	case 3:
+		// Смотрим пароли пользователей
+		// # user_input = input("Enter a math expression: ")
+		// i = "__import__('os').system('cd /; cat passwords.txt;')"
+		// print("Result:", eval(i))  # Ввод: __import__('os').system('rm -rf /')
+	case 4:
+		// Тоже самое, что и в 3, но rm -rf /
+	case 5:
+		// Раньше
+		// ssh
+		// sudo su
 	}
 
 	return "", fmt.Errorf("invalid level id while wrapping code")
@@ -77,11 +90,11 @@ resource.setrlimit(resource.RLIMIT_AS, (soft, hard))
 func handleResp(output string, levelId int) (domain.Response, error) {
 	switch levelId {
 	// TODO поставить нужный айди уровня
-	case 1:
+	case 9:
 		if strings.Contains(output, "RecursionError: maximum recursion depth exceeded") {
 			return domain.NewResponseOK(), nil
 		}
-	case 2:
+	case 10:
 		// 	import resource
 		//
 		// # Ограничим память до 100 MB
