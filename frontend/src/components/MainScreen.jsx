@@ -22,7 +22,7 @@ export default function MainScreen({
 }) {
   const [openSuccess, setOpenSuccess] = useState(false);
   const theme = useTheme();
-  const levelsNum = 16
+  const levelsNum = 11
 
   useEffect(() => {
     // Показываем уведомление, если уровень выполнен и это не нулевой уровень
@@ -39,7 +39,7 @@ export default function MainScreen({
     <Container maxWidth="xl" disableGutters sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
       <Snackbar
         open={openSuccess}
-        autoHideDuration={6000}
+        autoHideDuration={1200}
         onClose={handleCloseSuccess}
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >

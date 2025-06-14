@@ -1,6 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { CssBaseline, IconButton, ThemeProvider, Box, Button } from "@mui/material";
-import { Brightness4, Brightness7 } from "@mui/icons-material";
+import { CssBaseline, ThemeProvider } from "@mui/material";
 import { getTheme } from "./utils/theme";
 import AuthForm from "./components/AuthForm";
 import MainScreen from "./components/MainScreen";
@@ -33,7 +32,9 @@ export default function App() {
   const [hint, setHint] = useState("");
 
     const fetchLevelData = useCallback(async (level) => {
-    setIsLoading(true)
+    setIsLoading(true);
+    setCurrentHintIdx(0); 
+    setHint("");
     try {
       if (level === 0) {
         setLevelData({
@@ -63,8 +64,6 @@ export default function App() {
         hints: data.hints || []
       });
       setCode(data.initialCode || '');
-      setCurrentHintIdx(0); // Сбрасываем индекс подсказок
-      setHint("")
       setOutput("")
       
       
@@ -109,7 +108,7 @@ export default function App() {
         throw new Error("Failed to submit")
       }
       const data = await res.json();
-      setOutput(data.status || "");
+      setOutput(String(data.status) || "");
 
       if (data.isCompleted === true) {
       setUser(prev => {
