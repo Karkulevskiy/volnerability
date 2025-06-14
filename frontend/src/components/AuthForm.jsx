@@ -49,31 +49,31 @@ export default function AuthForm({ authMode, setAuthMode, onAuth }) {
 
     if (!email || !password || !emailRegex.test(email)) return;
 
-    if (authMode === "register"){
-      let reqBody = {email, password}
-      try{
-        await fetchData(`${BASE_URL}/register`, reqBody)
-      } catch (error){
-        setAuthError("Ошибка регистрации")
-        console.log(error)
-        return
-      }
-       
+    try {
+    if (authMode === "register") {
+      await fetchData(`${BASE_URL}/register`, {email, password});
       setSuccessMessage("Регистрация успешно завершена! Выполняется вход...");
       setOpenSnackbar(true);
     }
 
-    try{
-      let reqBody = {email, password}
-      const data = await fetchData(`${BASE_URL}/login`, reqBody) 
-      localStorage.setItem("authToken", data.token)
-    } catch (error) {
-      setAuthError("Неверно введён логин и/или пароль")
-      console.log(error)
-      return
-    }
+    const loginData = await fetchData(`${BASE_URL}/login`, {email, password});
+    localStorage.setItem("authToken", loginData.token);
 
-    onAuth(email);
+    const userData = await fetch(`${BASE_URL}/user?email=${email}`, {
+      headers: {
+        "Authorization": `Bearer ${loginData.token}`
+      }
+    });
+
+    if (!userData.ok) throw new Error("Ошибка получения данных пользователя");
+    
+    const { passLevels, totalAttempts } = await userData.json();
+    onAuth(email, passLevels, totalAttempts);
+
+  } catch (error) {
+    setAuthError(error.message || "Ошибка авторизации");
+    console.error(error);
+  }
   };
 
   return (
