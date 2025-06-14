@@ -117,6 +117,7 @@ func main() {
 	r.Get("/hint", hint.New(l, db))
 	r.Get("/user", user.New(l, db))
 	r.Get("/level", level.New(l, db))
+	r.Post("/changePassword", user.ChangePassword(l, db, cfg)) //TODO: переделать под grpc позже
 
 	l.Info("starting server", slog.String("address", cfg.HttpServer.Address))
 

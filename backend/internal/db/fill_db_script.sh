@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS user_levels (
     attempt_response TEXT,
     attempts INTEGER DEFAULT 0
 );
-
+# TODO: В УРОВНЯХ ЗАПОЛНИТЬ start_input
 -- ========== ЗАПОЛНЕНИЕ УРОВНЕЙ ==========
 
 INSERT INTO levels (id, name, description, expected_input) VALUES

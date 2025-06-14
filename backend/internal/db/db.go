@@ -163,7 +163,6 @@ func (s *Storage) SaveUser(ctx context.Context, email string, passHash []byte, i
 }
 
 func (s *Storage) User(ctx context.Context, email string) (models.User, error) {
-	fmt.Println("ALLOOOOO")
 	const op = "storage.sqlite.User"
 	query := "SELECT * FROM users WHERE email = ?"
 
@@ -175,7 +174,6 @@ func (s *Storage) User(ctx context.Context, email string) (models.User, error) {
 	row := stmt.QueryRowContext(ctx, email)
 	var user models.User
 	if err = row.Scan(&user.ID, &user.Email, &user.PassHash, &user.OauthID, &user.IsOauth, &user.TotalAttempts, &user.PassLevels); err != nil {
-		fmt.Println(err)
 		if errors.Is(err, sql.ErrNoRows) {
 			return models.User{}, fmt.Errorf("%s: %s", op, ErrUserNotFound)
 		}
@@ -186,29 +184,35 @@ func (s *Storage) User(ctx context.Context, email string) (models.User, error) {
 
 func (s *Storage) UpdateUser(ctx context.Context, user models.User) error {
 	needUpdate := make([]string, 0, 3)
-	if len(user.PassHash) > 0 {
-		needUpdate = append(needUpdate, "pass_hash = "+string(user.PassHash))
+	values := make([]interface{}, 0, 4)
+
+	if user.PassHash != nil && len(user.PassHash) > 0 {
+		needUpdate = append(needUpdate, "pass_hash = ?")
+		values = append(values, user.PassHash)
 	}
-	if user.TotalAttempts > 0 {
-		needUpdate = append(needUpdate, "total_attempts = "+strconv.Itoa(user.TotalAttempts))
+	if user.TotalAttempts != 0 { // Или другая логика проверки
+		needUpdate = append(needUpdate, "total_attempts = ?")
+		values = append(values, user.TotalAttempts)
 	}
-	if user.PassLevels > 0 {
-		needUpdate = append(needUpdate, "pass_levels = "+strconv.Itoa(user.PassLevels))
+	if user.PassLevels != 0 {
+		needUpdate = append(needUpdate, "pass_levels = ?")
+		values = append(values, user.PassLevels)
 	}
 
-	query := fmt.Sprintf(`
-	UPDATE users
-	SET %s
-	WHERE email = ?
-	`, strings.Join(needUpdate, ", "))
+	if len(needUpdate) == 0 {
+		return fmt.Errorf("Nothing to update")
+	}
 
-	stmt, err := s.db.Prepare(query)
+	query := fmt.Sprintf(`UPDATE users SET %s WHERE email = ?`, strings.Join(needUpdate, ", "))
+	values = append(values, user.Email)
+
+	stmt, err := s.db.PrepareContext(ctx, query)
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
 
-	res, err := stmt.Exec()
+	res, err := stmt.ExecContext(ctx, values...)
 	if err != nil {
 		return err
 	}

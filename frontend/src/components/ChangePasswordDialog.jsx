@@ -8,8 +8,33 @@ export default function ChangePasswordDialog({ open, onClose }) {
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
 
-  const handleChange = () => {
-    console.log("Смена пароля:", { oldPassword, newPassword });
+  const handleChange = async () => {
+    try{
+      const token = localStorage.getItem("authToken");
+      let reqBody = {
+        "oldPassword": oldPassword,
+        "newPassword": newPassword
+      }
+
+      const response = await fetch("http://localhost:8080/changePassword", {
+        headers: {
+          "Authorization": `Bearer ${token}`
+        },
+        method: "POST",
+        body: JSON.stringify(reqBody)
+      });
+
+      if (!response.ok) {
+        throw new Error('Не удалось сменить пароль');
+      }
+      
+      const data = await response.json();
+      if (data.status === 200){
+        localStorage.setItem("authToken", data.token)
+      }
+    } catch(error) {
+      console.log(error)
+    }
     onClose();
   };
 

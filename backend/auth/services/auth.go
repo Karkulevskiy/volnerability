@@ -56,11 +56,7 @@ func New(
 	}
 }
 
-func (a *Auth) Login(
-	ctx context.Context,
-	email string,
-	password string,
-) (string, error) {
+func (a *Auth) Login(ctx context.Context, email string, password string) (string, error) {
 	const op = "Auth.LoginUser"
 	log := a.log.With(slog.String("op", op))
 
